@@ -16,9 +16,9 @@ from jinja2 import Environment, FileSystemLoader
 from transliterate import translit
 from collections import OrderedDict
 ######################################################################################
-i18n={"Search":"Search","switchTheme":"switch theme","home":"home","comments":"comments","run":"run ","days":" day(s)","Previous":"Previous","Next":"Next"}
-i18nCN={"Search":"搜索","switchTheme":"切换主题","home":"首页","comments":"评论","run":"网站运行 ","days":" 天","Previous":"上一页","Next":"下一页"}
-i18nRU={"Search":"Поиск","switchTheme": "Сменить тему","home":"Главная","comments":"Комментарии ","run":" работает ","days":" дней","Previous":"Предыдущая","Next":"Следующая"}
+i18n={"Search":"Search","switchTheme":"switch theme","home":"home","comments":"comments","run":"run ","days":" day(s)","Previous":"Previous","Next":"Next","topic":"Topic","replies":"Replies","views":"Views","activity":"Activity","lastUpdate":"last update","noViews":"views unavailable","prevPage":"Prev","nextPage":"Next","pageOf":"Page %(n)d of %(t)d","abstract":"Abstract","keywords":"Keywords","author":"Author"}
+i18nCN={"Search":"搜索","switchTheme":"切换主题","home":"首页","comments":"评论","run":"网站运行 ","days":" 天","Previous":"上一页","Next":"下一页","topic":"话题","replies":"回复","views":"浏览量","activity":"活动","lastUpdate":"最后更新","noViews":"浏览量不可用","prevPage":"上一页","nextPage":"下一页","pageOf":"第 %(n)d 页 / 共 %(t)d 页","abstract":"摘要","keywords":"关键词","author":"作者"}
+i18nRU={"Search":"Поиск","switchTheme": "Сменить тему","home":"Главная","comments":"Комментарии ","run":" работает ","days":" дней","Previous":"Предыдущая","Next":"Следующая","topic":"Темы","replies":"Ответы","views":"Просмотры","activity":"Активность","lastUpdate":"Последнее обновление","noViews":"нет данных","prevPage":"Назад","nextPage":"Вперёд","pageOf":"Стр. %(n)d из %(t)d","abstract":"Аннотация","keywords":"Ключевые слова","author":"Автор"}
 IconBase={
     "post":"M0 3.75C0 2.784.784 2 1.75 2h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 14H1.75A1.75 1.75 0 0 1 0 12.25Zm1.75-.25a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25ZM3.5 6.25a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Zm.75 2.25h4a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1 0-1.5Z",
     "link":"m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z",
@@ -88,7 +88,7 @@ class GMEEK():
             print("static does not exist")
 
     def defaultConfig(self):
-        dconfig={"singlePage":[],"startSite":"","filingNum":"","onePageListNum":15,"commentLabelColor":"#006b75","yearColorList":["#bc4c00", "#0969da", "#1f883d", "#A333D0"],"i18n":"CN","themeMode":"manual","dayTheme":"light","nightTheme":"dark","urlMode":"pinyin","script":"","style":"","head":"","indexScript":"","indexStyle":"","bottomText":"","showPostSource":1,"iconList":{},"UTC":+8,"rssSplit":"sentence","exlink":{},"needComment":1,"allHead":""}
+        dconfig={"singlePage":[],"startSite":"","filingNum":"","onePageListNum":15,"commentLabelColor":"#006b75","yearColorList":["#bc4c00", "#0969da", "#1f883d", "#A333D0"],"i18n":"CN","themeMode":"manual","dayTheme":"light","nightTheme":"dark","urlMode":"pinyin","script":"","style":"","head":"","indexScript":"","indexStyle":"","bottomText":"","showPostSource":1,"iconList":{},"UTC":+8,"rssSplit":"sentence","exlink":{},"needComment":1,"allHead":"","journalAuthor":"","journalAffiliation":""}
         config=json.loads(open('config.json', 'r', encoding='utf-8').read())
         self.blogBase={**dconfig,**config}.copy()
         self.blogBase["postListJson"]=json.loads('{}')
@@ -134,6 +134,22 @@ class GMEEK():
             return response.text
         except requests.RequestException as e:
             raise Exception("markdown2html error: {}".format(e))
+
+    def cleanText(self, mdtext):
+        # 去掉 markdown 语法，得到期刊摘要用的纯文本
+        t=re.sub(r'^#{1,6}\s*','',mdtext,flags=re.M)   # 标题 #
+        t=re.sub(r'^>\s*','',t,flags=re.M)             # 引用 >
+        t=re.sub(r'^[-*+]\s+','',t,flags=re.M)         # 列表项
+        t=re.sub(r'!\[[^\]]*\]\([^)]*\)','',t)          # 图片 ![alt](url)
+        t=re.sub(r'\[([^\]]*)\]\([^)]*\)',r'\1',t)      # 链接 [text](url)
+        t=re.sub(r'`([^`]*)`',r'\1',t)                  # 行内代码
+        t=re.sub(r'\*\*([^*]+)\*\*',r'\1',t)            # 粗体
+        t=re.sub(r'\*([^*]+)\*',r'\1',t)                # 斜体
+        t=re.sub(r'[_]{2}([^_]+)[_]{2}',r'\1',t)        # 下划线粗体
+        t=re.sub(r'<[^>]+>','',t)                       # 行内 HTML
+        t=re.sub(r'[\r\n]+',' ',t)                      # 空白压缩
+        t=re.sub(r'\s+',' ',t).strip()
+        return t
 
     def renderHtml(self,template,blogBase,postListJson,htmlDir,icon):
         file_loader = FileSystemLoader('templates')
@@ -182,10 +198,11 @@ class GMEEK():
 
         postBase["postTitle"]=issue["postTitle"]
         postBase["postUrl"]=self.blogBase["homeUrl"]+"/"+issue["postUrl"]
-        postBase["description"]=issue["description"]
+        postBase["description"]=issue.get("descriptionClean",issue["description"])
         postBase["ogImage"]=issue["ogImage"]
         postBase["postBody"]=post_body
         postBase["commentNum"]=issue["commentNum"]
+        postBase["postLabels"]=issue["labels"]
         postBase["style"]=issue["style"]
         postBase["script"]=issue["script"]
         postBase["head"]=issue["head"]
@@ -345,6 +362,7 @@ class GMEEK():
                 else:
                     period=self.blogBase["rssSplit"]
                 self.blogBase[listJsonName][postNum]["description"]=issue.body.split(period)[0].replace("\"", "\'")+period
+                self.blogBase[listJsonName][postNum]["descriptionClean"]=self.cleanText(self.blogBase[listJsonName][postNum]["description"])
                 
             self.blogBase[listJsonName][postNum]["top"]=0
             for event in issue.get_events():
@@ -390,6 +408,20 @@ class GMEEK():
             thisYear=thisTime.year
             self.blogBase[listJsonName][postNum]["createdDate"]=thisTime.strftime("%Y-%m-%d")
             self.blogBase[listJsonName][postNum]["dateLabelColor"]=self.blogBase["yearColorList"][int(thisYear)%len(self.blogBase["yearColorList"])]
+
+            # forum-style list fields: author avatar + last activity date
+            if issue.user is not None and issue.user.avatar_url:
+                self.blogBase[listJsonName][postNum]["authorAvatar"]=issue.user.avatar_url
+            else:
+                self.blogBase[listJsonName][postNum]["authorAvatar"]=self.blogBase["avatarUrl"]
+            if issue.updated_at is not None:
+                updTime=datetime.datetime.fromtimestamp(int(time.mktime(issue.updated_at.timetuple())))
+                updTime=updTime.astimezone(self.TZ)
+                self.blogBase[listJsonName][postNum]["updatedDate"]=updTime.strftime("%Y-%m-%d")
+                self.blogBase[listJsonName][postNum]["updatedAt"]=int(time.mktime(issue.updated_at.timetuple()))
+            else:
+                self.blogBase[listJsonName][postNum]["updatedDate"]=self.blogBase[listJsonName][postNum]["createdDate"]
+                self.blogBase[listJsonName][postNum]["updatedAt"]=self.blogBase[listJsonName][postNum]["createdAt"]
 
             mdFileName=re.sub(r'[<>:/\\|?*\"]|[\0-\31]', '-', issue.title)
             f = open(self.backup_dir+mdFileName+".md", 'w', encoding='UTF-8')
