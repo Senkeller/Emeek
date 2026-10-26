@@ -6,37 +6,23 @@
 
 {% block style %}
 <style>
-.tagTitle{margin:auto 0;font-size:40px;font-weight:bold;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
-.title-right{display:flex;margin:auto 0 0 auto;}
-.title-right .circle{padding: 14px 16px;margin-right:8px;}
-
-.subnav-search{width:222px;margin-top:8px;margin-right:8px;}
-.subnav-search-input{width:160px;border-top-right-radius:0px;border-bottom-right-radius:0px;}
-.subnav-search button{padding:5px 8px;border-top-left-radius:0px;border-bottom-left-radius:0px;}
-
+/* 标签页内联样式只保留共享纸刊样式表不覆盖的细节：
+   页标题/目录标题的省略号、图标间距依赖这里的 overflow，Task1 契约要求
+   共享 CSS 不含裁剪类规则，故这些细节留在本模板局部。 */
+.tagTitle{margin:auto 0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-family:var(--fontStack-headings,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif);}
 .SideNav-icon{margin-right:16px}
-.Label{color: #fff;margin-left:4px;}
-#taglabel .Label {margin-bottom:8px;}
-.Counter{color:#fff;background-color:rgba(234, 238, 242, 0.5)}
-
-.genTime{float: right;}
 .d-flex{min-width:0;}
-.listTitle{overflow:hidden;white-space:nowrap;text-overflow: ellipsis;max-width: 100%;}
-.listLabels{white-space:nowrap;}
-
-@media (max-width: 600px) {
-    body { padding: 8px;}
-    .tagTitle{display:none;}
-    .LabelTime{display:none;}
-}
+.listTitle{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:100%;}
 </style>
+<!-- 共享纸刊样式：与文章页/首页同一份，保证标签筛选结果与原视觉一致 -->
+<link rel="stylesheet" href="{{ blogBase['homeUrl'] }}/assets/journal-style.css" />
 {% endblock %}
 
 {% block header %}
-<span class="tagTitle"><span>Loading</span><span class="AnimatedEllipsis"></span></span>
+<span class="tagTitle journal-page-title"><span>Loading</span><span class="AnimatedEllipsis"></span></span>
 <div class="title-right">
-    <div class="subnav-search">
-        <input type="search" class="form-control subnav-search-input float-left" aria-label="Search site" value="" style="height:32px;">
+    <div class="subnav-search journal-search">
+        <input type="search" class="form-control subnav-search-input float-left journal-search-input" aria-label="Search site" value="" style="height:32px;">
         <button class="btn float-left" type="submit" onclick="javascript:searchShow()">{{ i18n['Search'] }}</button>
         <svg class="subnav-search-icon octicon octicon-search" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
             <path id="searchSVG" fill-rule="evenodd"></path>
@@ -56,9 +42,9 @@
 {% endblock %}
 
 {% block content %}
-<div id="taglabel" style="margin-bottom:8px;"></div>
-<nav class="SideNav"></nav>
-<div class="notFind" style="display:none;font-size:24px;margin:8px;">Not Find</div>
+<div id="taglabel" class="journal-tags" style="margin-bottom:8px;"></div>
+<nav class="SideNav journal-list"></nav>
+<div class="notFind journal-none" style="display:none;font-size:24px;margin:8px;">Not Find</div>
 {% endblock %}
 
 {% block script %}
@@ -118,11 +104,11 @@ function showList(labelsCount){
             let div=document.createElement("div");
             div.setAttribute("class","lists "+jsonData[i]['labels'].join(" "));
             let item=document.createElement("a");
-            item.setAttribute("class","SideNav-item d-flex flex-items-center flex-justify-between");
+            item.setAttribute("class","SideNav-item d-flex flex-items-center flex-justify-between journal-row");
             item.setAttribute("href",jsonData[i]['postUrl']);
 
             let center=document.createElement("div");
-            center.setAttribute("class","d-flex flex-items-center");
+            center.setAttribute("class","d-flex flex-items-center journal-dir-icon");
 
             svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
             path=document.createElementNS("http://www.w3.org/2000/svg","path"); 
@@ -139,7 +125,7 @@ function showList(labelsCount){
             center.appendChild(title);
 
             let listLabels=document.createElement("div");
-            listLabels.setAttribute("class","listLabels");
+            listLabels.setAttribute("class","listLabels journal-meta");
             
             for(label of jsonData[i]['labels']){
                 let LabelName=document.createElement("span");

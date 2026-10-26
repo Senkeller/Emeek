@@ -1,0 +1,236 @@
+/* Journal of Earth shared journal layout */
+
+/* ============ Task 1：纸刊设计契约 ============
+   定义纸刊配色、排版与页面几何的全局设计令牌，
+   供后续模板与分页任务统一引用。 */
+
+:root {
+  /* 纸刊配色：页面底色、纸张色、墨色、次级文字、描边、强调色 */
+  --journal-page: #f6f3ea;              /* 页面整体底色（米灰） */
+  --journal-paper: #fbf8ef;            /* 纸张（正文区域）底色（米白） */
+  --journal-ink: #2d2a26;              /* 正文墨色（暖黑） */
+  --journal-muted: #766f65;            /* 次级文字（灰褐） */
+  --journal-border: #d8d0c2;           /* 分隔描边（浅陶土） */
+  --journal-accent: #bc4c00;           /* 强调色（赭红） */
+  /* 纸刊排版 */
+  --journal-body-size: 16px;           /* 正文基准字号 */
+  --journal-body-leading: 1.72;        /* 正文基准行高 */
+  /* 纸页几何 */
+  --journal-page-padding-x: 38px;      /* 页面左右留白 */
+  --journal-page-padding-top: 34px;    /* 页面顶部留白 */
+  --journal-page-padding-bottom: 40px; /* 页面底部留白 */
+  --journal-page-height: 780px;        /* 单页固定高度 */
+}
+
+/* 全站纸刊外观挂钩：由 base.html 的 <body class="journal-site"> 触发。
+   字号/行高直接书写便于无变量环境兜底，与上方 token 保持同步。 */
+body.journal-site {
+  box-sizing: border-box;
+  min-width: 200px;
+  max-width: 1200px;
+  margin: 24px auto;
+  padding: 0 16px;
+  background: var(--journal-page, #f6f3ea);
+  color: var(--journal-ink, #2d2a26);
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Songti SC", "Noto Serif SC", serif;
+  font-size: 16px;   /* 与 --journal-body-size 同步 */
+  line-height: 1.72; /* 与 --journal-body-leading 同步 */
+}
+
+/* ============ Task 2：纸页排版密度与分页安全 ============
+   密度：正文缩放到 16px / 1.72、段落间距约 .45em、三级标题 24/20/17px，
+   纸页留白改为 34px/38px/40px，让一页容纳的文字密度和纸刊更接近。
+   安全：纸页溢出改为可见，绝不让固定高度把正文裁掉；只有超高/超宽
+   的代码块、宽表格、大图在自身内部滚动而不是撑破纸页；移动端
+   不再生成固定纸页，正文在 #postBody 直接自然流动。
+   所有几何测量值都应从本文件的计算样式读取（见 journal-post.js）。 */
+
+/* 期刊头部（题名/作者/摘要/关键词） */
+.journal-head{border-bottom:1px solid var(--borderColor-muted,var(--color-border-muted));margin-bottom:24px;padding-bottom:20px;text-align:center}
+.journal-title{margin:0 0 12px;font-size:24px;font-weight:700;line-height:1.5;font-family:var(--fontStack-headings,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif)}
+.journal-authors{margin-bottom:4px;font-size:15px;color:var(--fgColor-default,var(--color-fg-default))}
+.journal-affil{margin-bottom:14px;font-size:13px;color:var(--fgColor-muted,var(--color-fg-muted))}
+.journal-abstract{margin:14px auto 0;max-width:760px;text-align:left;background:var(--bgColor-muted,var(--color-canvas-subtle));border-left:3px solid var(--borderColor-accent-muted,#0969da);padding:10px 14px;font-size:14px;line-height:1.75}
+.journal-abstract .jlabel,.journal-keywords .jlabel{font-weight:600;margin-right:4px}
+.journal-keywords{margin:12px auto 0;max-width:760px;text-align:left;font-size:14px}
+.jkeyword{display:inline-block;margin:2px 6px 2px 0;padding:1px 10px;border-radius:12px;font-size:12px;color:#fff;line-height:1.7}
+
+/* 纸面容器：竖屏单列，宽屏横屏双页并排 */
+.journal-paper{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:start;counter-reset:jpage-counter}
+
+/* 单张纸页：桌面端高度固定 780px，作为分页引擎的切割基线。
+   overflow 用 visible 而非 hidden：分页引擎负责让内容完整入页，
+   一旦测量有偏差最多溢出显示，绝不把字/图裁掉——这是本任务的分页安全底线。 */
+.jpage{
+  box-sizing:border-box;
+  background:var(--journal-paper,#fff);
+  color:var(--journal-ink,#1f2328);
+  box-shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.12);
+  border-radius:4px;
+  padding:var(--journal-page-padding-top,34px) var(--journal-page-padding-x,38px) var(--journal-page-padding-bottom,40px);
+  margin-bottom:20px;
+  height:var(--journal-page-height,780px);
+  min-width:0;              /* 允许作为 grid 子项收窄而不撑破布局 */
+  column-count:2;column-gap:38px;column-fill:auto;
+  overflow:visible;
+  position:relative;
+  font-family:"Songti SC","Noto Serif SC","SimSun",serif;
+  font-size:var(--journal-body-size,16px);
+  line-height:var(--journal-body-leading,1.72);
+}
+/* 页脚页码 */
+.jpage::after{counter-increment:jpage-counter;content:counter(jpage-counter);position:absolute;left:0;right:0;bottom:12px;text-align:center;font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#888}
+
+/* 期刊正文排版：正文 16px/1.72 与全局令牌一致，避免纸页内外密度起伏 */
+.jpage.markdown-body{font-family:"Songti SC","Noto Serif SC","SimSun",serif;font-size:var(--journal-body-size,16px);line-height:var(--journal-body-leading,1.72);color:var(--journal-ink,#1f2328)}
+/* 段落间距压到约 .45em：此前的 .6em 配合 16px 字号会让段落间空隙过大、密度偏稀 */
+.jpage.markdown-body>p{text-align:justify;text-indent:2em;margin:0 0 .45em}
+.jpage.markdown-body h1,.jpage.markdown-body h2,.jpage.markdown-body h3{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;column-span:all;text-indent:0;margin:.8em 0 .4em;break-after:avoid}
+.jpage.markdown-body h1{font-size:24px;line-height:1.4}.jpage.markdown-body h2{font-size:20px;line-height:1.5;margin-top:1.6em}.jpage.markdown-body h3{font-size:17px;line-height:1.5;margin-top:1.2em}
+.jpage.markdown-body h1:first-child,.jpage.markdown-body h2:first-child{margin-top:0}
+.jpage.markdown-body ul,.jpage.markdown-body ol{margin:0 0 .8em}
+.jpage.markdown-body blockquote{margin:.4em 0 .8em;padding:6px 12px}
+.jpage.markdown-body pre,.jpage.markdown-body .highlight,.jpage.markdown-body table{column-span:all}
+
+/* 超高/超宽的代码、表格只在自己的框内滚动，而不是把纸页撑开 */
+.jpage.markdown-body pre{box-sizing:border-box;width:100%;min-width:0;max-width:100%;max-height:520px;overflow:auto;margin:.9em 0;padding:14px 16px;border:1px solid #d0d7de;border-radius:6px;background:#f6f8fa;color:#24292f;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:13px;line-height:1.6;white-space:pre}
+.jpage.markdown-body pre code{font:inherit;white-space:inherit}
+.jpage.markdown-body .snippet-clipboard-content{position:relative}
+.jpage.markdown-body img{max-width:100%;max-height:600px;object-fit:contain}
+.jpage.markdown-body table{display:block;min-width:0;max-width:100%;overflow-x:auto;margin:.6em 0;max-height:560px}
+.jpage.markdown-body .toc,.jpage.markdown-body hr{column-span:all}.jpage.markdown-body .footnotes{column-span:all;font-size:12px}
+.jpage.markdown-body .math-renderer,.jpage.markdown-body .katex-display{column-span:all}
+
+/* 深色主题下纸面保持纸白、文字深色（读纸刊效果），不跟随全站暗色 */
+[data-color-mode="dark"] .jpage{background:#fbfbf8;color:#1a1a1a}
+[data-color-mode="dark"] .jpage.markdown-body{color:#1a1a1a}
+[data-color-mode="dark"] .jpage.markdown-body a{color:#0969da}
+
+/* 含有纸面的页面：解除 base.html 内联 body 的 900px 文章宽度限制并改写
+   margin/padding，给横屏双页留出空间，同时避免内联基础样式与新令牌冲突 */
+body.journal-site:has(.journal-paper){max-width:1400px;margin:24px auto;padding:0 16px}
+.toc{position:fixed;z-index:20;top:130px;right:24px;left:auto;transform:none;box-sizing:border-box;width:222px;max-width:calc(100vw - 48px);max-height:70vh;overflow-y:auto;border:1px solid #e1e4e8;border-radius:6px;padding:10px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+.toc-title{font-weight:700;text-align:center;border-bottom:1px solid #ddd;padding-bottom:8px}.toc a{display:block;color:var(--color-accent-fg,#0969da);text-decoration:none;padding:5px 0;font-size:14px;line-height:1.5;border-bottom:1px solid #e1e4e8}.toc a:last-child{border-bottom:0}.toc a:hover{background-color:var(--color-select-menu-tap-focus-bg,#ddf4ff)}
+
+/* 竖屏单页：纸面内部改单栏，避免窄栏文字过碎 */
+@media (orientation:portrait){.jpage{column-count:1;column-gap:0}}
+/* 横屏宽屏一次显示两张期刊页；窄屏横屏仍保持单页，避免文字过窄 */
+@media (orientation:landscape) and (min-width:1000px){.journal-paper{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:1249px){.toc{position:static;max-width:none;width:auto;transform:none;margin:16px 0 20px;padding:10px;background:#f6f8fa}}
+
+/* 移动端（<=720px）：分页引擎检测到该断点会直接跳过建页，正文留在
+   #postBody 自然流动。这里对 .jpage 的改写仅作兜底（如禁用 JS 时的残留
+   页面），保证单栏、不裁剪、无纸页阴影的连续阅读观感，正文维持 16px。 */
+@media (max-width:720px){
+  body{padding:8px}
+  .journal-paper{max-width:100%}
+  .journal-title{font-size:20px}
+  #postBody{font-size:16px;line-height:1.72;color:var(--journal-ink,#1f2328)}
+  .jpage{
+    height:auto;min-height:0;   /* 解除固定高度，内容有多少显示多少 */
+    column-count:1;column-gap:0;/* 单栏连续阅读 */
+    overflow:visible;           /* 不裁剪任何内容 */
+    box-shadow:none;            /* 去掉纸页阴影，视觉上连续成文 */
+    border:1px solid var(--journal-border,#d8d0c2);
+    border-radius:0;
+    padding:20px 16px 28px;     /* 移动端更紧凑的留白 */
+    font-size:16px;             /* 正文保持 16px，不因屏小缩字号 */
+  }
+}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+
+/* ============ Task 3：全站统一纸刊视觉 ============
+   首页目录、标签页、分页与页脚共用同一套纸刊视觉。
+   布局从 base.html 的重复内联规则迁移到这里，避免样式顺序互相覆盖；
+   标题省略等需要裁剪的页面细节仍留在模板局部，正文安全规则不受影响。 */
+
+/* 站点骨架：header/content/footer 三段使用同一套暖色分隔与留白 */
+.journal-header{display:flex;align-items:flex-start;flex-wrap:wrap;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--journal-border,#d8d0c2);margin-bottom:22px}
+.journal-content{min-width:0}
+.journal-footer{margin-top:64px;padding-top:16px;border-top:1px solid var(--journal-border,#d8d0c2);text-align:center;font-size:13px;line-height:1.9;color:var(--journal-muted,#766f65)}
+.journal-footer a{color:var(--journal-accent,#bc4c00);text-decoration:none}
+.journal-footer a:hover{text-decoration:underline}
+
+/* 首页品牌区：标题字族改用共享纸刊衬线栈，放弃旧的内联等宽字体覆盖 */
+.journal-brand{display:flex;align-items:center;min-width:0;margin-right:auto}
+.title-left{display:flex;align-items:center;min-width:0}
+.title-left a{color:var(--journal-ink,#2d2a26);text-decoration:none;font-size:34px;font-weight:700;font-family:var(--fontStack-headings,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif);margin-left:12px}
+.title-left a:hover{color:var(--journal-accent,#bc4c00)}
+.title-left a:focus-visible{outline:2px solid var(--journal-accent,#bc4c00);outline-offset:4px;border-radius:4px}
+.avatar{width:64px;height:64px;object-fit:cover;border-radius:50%;transition:transform .5s ease}
+.avatar:hover{transform:scale(1.08)}
+.title-right{display:flex;align-items:center;gap:6px;margin-left:auto}
+.title-right .circle{padding:10px 14px;border-radius:50%}
+
+/* 首页目录与标签结果共用可点击纸卡行 */
+.journal-list{border:1px solid var(--journal-border,#d8d0c2);border-radius:8px;background:var(--journal-paper,#fbf8ef);padding:4px 0}
+.journal-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 16px;color:var(--journal-ink,#2d2a26);text-decoration:none;border-bottom:1px solid var(--journal-border,#d8d0c2)}
+.journal-row:hover{background:rgba(188,76,0,.07)}
+.journal-row:focus-visible{outline:2px solid var(--journal-accent,#bc4c00);outline-offset:-2px}
+.journal-row:active{background:rgba(188,76,0,.12)}
+.journal-meta{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.journal-meta .Label{display:inline-block;margin-left:0;color:#fff;border-radius:10px;padding:1px 8px;font-size:12px;line-height:1.7;white-space:nowrap}
+.journal-meta .Label a{color:#fff;text-decoration:none}
+.journal-meta .Label a:hover{text-decoration:underline}
+/* 目录行标题列：整体可收缩，长标题才能触发省略号而不横向溢出。
+   旧实现 flex:none（flex:0 0 auto）把列钉死为不可收缩，列宽恒为内容宽，
+   列内 .listTitle 的 overflow 省略号永远不生效。现在让列本身 min-width:0
+   可收缩，列内图标固定、标题子项可收缩（min-width:0;flex:1 1 auto）。 */
+.journal-dir-icon{min-width:0}
+.journal-dir-icon .SideNav-icon{flex:none}
+.journal-dir-icon .listTitle{min-width:0;flex:1 1 auto}
+
+/* 首页副标题与标签页标签栏保持同一纸色 */
+.journal-subtitle{margin-bottom:16px;color:var(--journal-muted,#766f65)}
+.journal-tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:10px}
+.journal-tags .Label{margin:0;border-radius:14px;padding:3px 8px;color:#fff;cursor:pointer;font-size:13px;line-height:1.7}
+.journal-tags .Label:hover{filter:brightness(1.08)}
+.journal-tags .Label:focus-visible{outline:2px solid var(--journal-accent,#bc4c00);outline-offset:2px}
+.Counter{display:inline-block;min-width:20px;height:20px;margin-left:4px;padding:0 6px;border-radius:20px;background:rgba(255,255,255,.24);color:#fff;line-height:20px;text-align:center;font-size:12px}
+
+/* 标签页标题与搜索控件 */
+.journal-page-title{display:block;margin:auto 0;font-size:30px;font-weight:700;line-height:1.4;font-family:var(--fontStack-headings,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif)}
+.journal-search{display:flex;align-items:center;gap:4px;width:222px;margin:0 8px 0 0;padding:3px;border:1px solid var(--journal-border,#d8d0c2);border-radius:6px;background:var(--journal-paper,#fbf8ef)}
+.journal-search-input{box-sizing:border-box;min-width:0;width:160px;border:0;border-radius:4px;background:transparent;padding:6px 10px;color:var(--journal-ink,#2d2a26);font:inherit;outline:none}
+.journal-search-input:focus-visible{outline:2px solid var(--journal-accent,#bc4c00);outline-offset:1px}
+.journal-search button{border:0;border-radius:4px;background:rgba(188,76,0,.1);color:var(--journal-accent,#bc4c00);padding:5px 10px;cursor:pointer}
+.journal-search button:hover{background:rgba(188,76,0,.18)}
+.journal-search button:active{background:rgba(188,76,0,.26)}
+.journal-search button:focus-visible{outline:2px solid var(--journal-accent,#bc4c00);outline-offset:1px}
+.journal-none{color:var(--journal-muted,#766f65);text-align:center}
+
+/* 上一页/下一页：禁用态保留可读性且不伪装成链接 */
+.journal-pagination{margin-top:20px}
+.journal-pagination .pagination{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:0}
+.journal-pagination .previous_page,.journal-pagination .next_page{display:inline-block;border:1px solid var(--journal-border,#d8d0c2);border-radius:6px;background:var(--journal-paper,#fbf8ef);padding:5px 14px;color:var(--journal-ink,#2d2a26);font-size:14px;text-decoration:none}
+.journal-pagination a:hover{background:rgba(188,76,0,.08)}
+.journal-pagination a:focus-visible{outline:2px solid var(--journal-accent,#bc4c00);outline-offset:2px}
+.journal-pagination [aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+
+/* dark 主题仍保持纸刊纸面，但明确覆盖文字/边框，避免依赖 Primer 浅色默认值 */
+[data-color-mode="dark"] body.journal-site{background:var(--journal-page,#f6f3ea);color:var(--journal-ink,#2d2a26)}
+[data-color-mode="dark"] .journal-list,[data-color-mode="dark"] .journal-search,[data-color-mode="dark"] .journal-pagination .previous_page,[data-color-mode="dark"] .journal-pagination .next_page{background:var(--journal-paper,#fbf8ef)}
+[data-color-mode="dark"] .journal-row,[data-color-mode="dark"] .journal-pagination .previous_page,[data-color-mode="dark"] .journal-pagination .next_page{color:var(--journal-ink,#2d2a26)}
+
+/* 720px 是全站移动断点：收紧留白，目录元数据置于标题下方，正文仍为 16px。 */
+@media (max-width:720px){
+  body.journal-site{max-width:100%;margin:8px auto;padding:8px;font-size:16px;line-height:1.72}
+  .journal-header{gap:8px;padding-bottom:10px;margin-bottom:16px}
+  .journal-brand{width:100%}
+  .title-left a{font-size:26px}
+  .avatar{width:44px;height:44px}
+  .blogTitle{display:none}
+  #buttonRSS{display:none}
+  .journal-row{flex-direction:column;align-items:stretch;gap:6px;padding:10px 12px}
+  .journal-row .journal-meta{width:100%;justify-content:flex-start}
+  .journal-page-title{font-size:22px}
+  .journal-search{box-sizing:border-box;width:100%;margin:0 0 8px}
+  .journal-search-input{width:100%}
+  .journal-pagination .previous_page,.journal-pagination .next_page{padding:4px 10px;font-size:13px}
+}
+
+/* 尊重 reduced-motion：头像不在 reduced-motion 模式下突然旋转/缩放。 */
+@media (prefers-reduced-motion:reduce){
+  .avatar:hover{transform:none}
+}
