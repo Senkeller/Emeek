@@ -81,7 +81,9 @@ def test_mobile_article_becomes_single_column_without_clipping():
     mobile_start = STYLE.replace(" ", "").find("@media(max-width:720px)")
     mobile = STYLE.replace(" ", "")[mobile_start:]
     assert "column-count:1" in mobile
-    assert "overflow:hidden" not in STYLE.replace(" ", "")
+    # 桌面：分页引擎把内容按固定页高切分，每页 overflow:hidden 截断溢出块，
+    # 由 JS 保证不丢内容（试排-回溯）；移动端单栏不分页，禁止 overflow:hidden 隐藏内容。
+    assert "overflow:hidden" not in mobile
     assert "overflow:hidden" not in POST.replace(" ", "")
 
 
