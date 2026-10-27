@@ -126,10 +126,22 @@
   };
 
   function start() {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', paginate);
-    } else {
+    /* 等图片等资源全部加载完再分页，保证高度测量准确；
+       若 load 未触发（例如图片挂了），DOMContentLoaded 后兜底。 */
+    var already = false;
+    function run() {
+      if (already) return;
+      already = true;
       paginate();
+    }
+    if (document.readyState === 'complete') {
+      run();
+    } else {
+      window.addEventListener('load', run);
+      /* 兜底：DOM 就绪后 2.5s 强制分页，避免个别慢资源阻塞 */
+      document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(run, 2500);
+      });
     }
   }
   start();
