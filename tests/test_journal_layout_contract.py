@@ -83,3 +83,16 @@ def test_mobile_article_becomes_single_column_without_clipping():
     assert "column-count:1" in mobile
     assert "overflow:hidden" not in STYLE.replace(" ", "")
     assert "overflow:hidden" not in POST.replace(" ", "")
+
+
+def test_post_render_forwards_issue_labels_as_post_labels():
+    """post.html 用 postLabels 渲染关键词块，Gmeek.py 必须把它传给模板。
+
+    模板中的关键分支是 `{% if postLabels|length>0 %}`；若构建脚本未传递
+    postLabels，Jinja2 会将未定义变量当作 Undefined（length 为 0），
+    关键词块被整体跳过——本地预览有关键词、线上却消失，根因在此。
+    """
+    # 后端渲染 post.html 时显式传入 postLabels（来自 issue 的 labels）
+    assert "postLabels=issue.get(\"labels\",[])" in GMEek.replace(" ", "")
+    # renderHtml 的渲染上下文包含 postLabels，且必须作为模板变量传入
+    assert "postLabels=postLabels" in GMEek.replace(" ", "")

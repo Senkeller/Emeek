@@ -135,11 +135,11 @@ class GMEEK():
         except requests.RequestException as e:
             raise Exception("markdown2html error: {}".format(e))
 
-    def renderHtml(self,template,blogBase,postListJson,htmlDir,icon):
+    def renderHtml(self,template,blogBase,postListJson,htmlDir,icon,postLabels=None):
         file_loader = FileSystemLoader('templates')
         env = Environment(loader=file_loader)
         template = env.get_template(template)
-        output = template.render(blogBase=blogBase,postListJson=postListJson,i18n=self.i18n,IconList=icon)
+        output = template.render(blogBase=blogBase,postListJson=postListJson,postLabels=postLabels,i18n=self.i18n,IconList=icon)
         f = open(htmlDir, 'w', encoding='UTF-8')
         f.write(output)
         f.close()
@@ -208,7 +208,7 @@ class GMEEK():
             postBase["highlight"]=0
 
         postIcon=dict(zip(keys, map(IconBase.get, keys)))
-        self.renderHtml('post.html',postBase,{},issue["htmlDir"],postIcon)
+        self.renderHtml('post.html',postBase,{},issue["htmlDir"],postIcon,postLabels=issue.get("labels",[]))
         print("create postPage title=%s file=%s " % (issue["postTitle"],issue["htmlDir"]))
 
     def createPlistHtml(self):
