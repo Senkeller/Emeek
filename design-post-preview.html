@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>文章详情页 · 模板排版方案预览</title>
+<style>
+/* =========================================================
+   文章详情页排版方案（还原《论文模板260909.pdf》版式）
+   ---------------------------------------------------------
+   数据原则：只使用博客已有字段，缺失的板块整块留空，
+   不伪造刊名/卷期/DOI/中图分类号/文章编号等出版身份信息。
+   磅值→像素换算：五号 10.5pt→15px / 四号 14pt→19px /
+   二号 22pt→29px / 小五 9pt→12px。
+   这是静态预览稿，交互分页由现有 journal-post.js 引擎承担。
+   ========================================================= */
+
+:root {
+  --paper: #fbf8ef;        /* 纸张底色（纸白） */
+  --page:  #f6f3ea;        /* 页面底色（米灰） */
+  --ink:   #2d2a26;        /* 正文墨色 */
+  --muted: #766f65;        /* 次级文字（灰褐） */
+  --border:#d8d0c2;        /* 描边（浅陶土） */
+  --accent:#bc4c00;        /* 强调（赭红） */
+
+  /* 字体栈：黑体/楷体/宋体 + 西文 Times
+     黑体 on macOS 优先 Heiti SC，楷体优先 Kaiti SC/STKaiti */
+  --hei:  "Heiti SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --kai:  "Kaiti SC","STKaiti","KaiTi","AR PL UKai CN",serif;
+  --song: "Songti SC","Noto Serif SC","SimSun",serif;
+  --times:"Times New Roman","Times",var(--song);
+
+  /* 字号令牌（模板换算） */
+  --sz-hei-lv2:  29px;   /* 二号：文章题目 */
+  --sz-hei-lv3:  19px;   /* 四号：作者、一级标题 */
+  --sz-body:     15px;   /* 五号：正文、摘要、关键词、二级标题 */
+  --sz-small:    12px;   /* 小五：单位、页眉、图表题、文末信息 */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--song);
+  padding: 48px 16px 72px;
+}
+
+/* ---------- 预览说明条（网页外侧，正式实现不渲染） ---------- */
+.legend {
+  max-width: 840px;
+  margin: 0 auto 28px;
+  border: 1px dashed var(--border);
+  background: rgba(255,255,255,.55);
+  padding: 16px 20px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.legend h2 { font-size: 14px; color: var(--ink); margin-bottom: 6px; font-family: var(--hei); }
+.legend b { color: var(--accent); }
+.legend ul { padding-left: 18px; }
+
+/* ---------- 纸页 ---------- */
+.sheet {
+  width: min(100%, 840px);
+  margin: 0 auto 40px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 10px 28px rgba(60,50,30,.12);
+  padding: 34px 44px 52px;
+  font-size: var(--sz-body);
+  line-height: 1.7;
+}
+
+/* ============ 页眉刊头（两行 + 分隔线） ============ */
+.masthead {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  margin-bottom: 26px;
+}
+.masthead .row + .row { margin-top: 3px; }
+.masthead .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--sz-small);
+}
+/* 刊名：仿模板，小五号宋体，夹在两行日期之间 */
+.masthead .journal-name {
+  font-family: var(--song);
+  font-size: var(--sz-small);
+  letter-spacing: .12em;
+}
+.row-en { letter-spacing: .08em; }
+.mh-side { font-family: var(--times); white-space: nowrap; }
+
+/* ============ 题目 / 作者 / 单位（通栏居中） ============ */
+.title-block { text-align: center; margin-bottom: 18px; }
+.paper-title {
+  font-family: var(--hei);
+  font-size: var(--sz-hei-lv2);   /* 二号 */
+  font-weight: 700;
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+.paper-authors {
+  font-family: var(--kai);        /* 四号楷体 */
+  font-size: var(--sz-hei-lv3);
+  margin-bottom: 6px;
+}
+.paper-affil {
+  font-family: var(--song);       /* 小五宋体（西文 Times） */
+  font-size: var(--sz-small);
+  color: var(--muted);
+}
+
+/* ============ 摘要 / 关键词（五号，左右缩进 2 字符） ============ */
+.abstract, .keywords {
+  font-size: var(--sz-body);
+  /* 模板：摘要左右各缩进 2 字符。中文字符宽度 ≈ 1em，故左右各 2em */
+  padding: 0 2em;
+  text-align: justify;
+  text-indent: 0;
+  line-height: 1.7;
+}
+.abstract .label, .keywords .label { font-family: var(--hei); font-weight: 600; }
+.abstract .content, .keywords .content { font-family: var(--kai); }
+.keywords { margin-top: 6px; }
+
+/* ============ 双栏正文 ============ */
+.bodycols {
+  margin-top: 14px;
+  column-count: 2;
+  column-gap: 40px;
+  text-align: justify;
+  text-justify: inter-ideograph;
+  font-family: var(--song);
+}
+.bodycols p {
+  text-indent: 2em;
+  margin: 0 0 .45em;
+}
+/* 一级标题：四号黑体，跨栏 */
+.bodycols h3.c1 {
+  font-family: var(--hei);
+  font-size: var(--sz-hei-lv3);
+  font-weight: 700;
+  line-height: 1.4;
+  column-span: all;
+  margin: .8em 0 .4em;
+}
+/* 二级标题：五号黑体 */
+.bodycols h4.c2 {
+  font-family: var(--hei);
+  font-size: var(--sz-body);
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 1.2em 0 .4em;
+}
+/* 三级标题：同正文 */
+.bodycols h5.c3 { font-family: var(--hei); font-size: var(--sz-body); font-weight: 600; margin: .8em 0 .3em; }
+
+/* 图题（图下方，小五宋体）与表题（表上方，小五黑体） */
+.fig-wrap { margin: .9em 0; break-inside: avoid; }
+.fig-placeholder {
+  height: 120px;
+  border: 1px solid var(--border);
+  background: #f7f3e7;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: var(--sz-small);
+  font-family: var(--song);
+}
+.fig-caption { margin-top: 6px; font-size: var(--sz-small); font-family: var(--song); text-align: center; }
+.table-wrap { margin: .9em 0; break-inside: avoid; }
+.table-caption { margin-bottom: 6px; font-size: var(--sz-small); font-family: var(--hei); text-align: center; font-weight: 600; }
+.table-placeholder {
+  border: 1px solid var(--border);
+  padding: 18px;
+  text-align: center; color: var(--muted); font-size: var(--sz-small);
+  font-family: var(--song); background:#f7f3e7;
+}
+
+/* 公式：居中，序号右对齐 */
+.formula {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+  margin: .9em 0;
+  break-inside: avoid;
+}
+.formula .eq { text-align: center; font-family: var(--times); }
+.formula .no { font-family: var(--times); font-size: var(--sz-body); }
+
+/* 图注集中到栏内：一处示意即可 */
+/* ============ 续页页眉（页码｜刊名｜期） ============ */
+.cont-masthead {
+  display: flex; justify-content: space-between;
+  font-size: var(--sz-small);
+  font-family: var(--song);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px; margin-bottom: 20px;
+}
+
+/* ============ 文末信息（小五黑体） ============ */
+.paper-foot {
+  margin-top: 26px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: var(--sz-small);
+  font-family: var(--hei);
+  line-height: 1.9;
+}
+.paper-foot .omit { color: var(--muted); font-family: var(--song); }
+.foot-note { margin-top: 4px; }
+
+/* ---------- 页码（页脚居中） ---------- */
+.page-number {
+  text-align: center;
+  margin-top: 26px;
+  font-family: var(--times);
+  font-size: var(--sz-small);
+}
+
+/* ============ 焦点可见 / 移动端单栏 ============ */
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (max-width: 720px) {
+  body { padding: 10px; }
+  .sheet { padding: 20px 16px 32px; width: 100%; }
+  .bodycols { column-count: 1; column-gap: 0; }
+  .paper-title { font-size: 20px; }
+  .cont-masthead { letter-spacing: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════ 方案说明（正式实现不渲染） ══════════ -->
+<aside class="legend">
+  <h2>方案要点（对照模板逐项核对后确认即可）</h2>
+  <ul>
+    <li><b>页眉两行</b>：上排 中文年月 ｜ 刊名 ｜ 英文月年；下排 第X期 ｜ 站点英文名 ｜ No.X（英文名/期数为博客"就简派生"，可在确认时选择隐藏下排）。份行下方为 DOI 行，博客无数据故整行留空。</li>
+    <li><b>刊名回归小五宋体</b>：模板页眉刊名是小五号，不放大为站点大字标题。</li>
+    <li><b>作者/摘要/关键词改楷体</b>：作者四号楷体；"摘 要：""关键词："标签黑体、内容楷体；关键词改为<b>分号分隔</b>（当前实现是彩色药丸，这是本次与现状的主要差异点）。</li>
+    <li><b>摘要留白</b>：左右各缩进 2 字符。</li>
+    <li><b>正文双栏</b>：五号宋体、两端对齐、首行缩进 2 字符；一级标题四号黑体跨栏、二级五号黑体。</li>
+    <li><b>图表题小五</b>：图注宋体在下方、表题黑体在上方。</li>
+    <li><b>文末</b>：收稿日期（现有字段），基金/作者简介/通信作者无数据整块省略。</li>
+    <li><b>不伪造</b>：不出现"西北工业大学学报"、卷期、DOI、中图分类号、文章编号。</li>
+  </ul>
+</aside>
+
+<!-- ══════════ 第 1 页：刊首版式 ══════════ -->
+<article class="sheet" style="height:880px; display:block;">
+
+  <!-- 页眉：两行刊头 -->
+  <header class="masthead">
+    <div class="row">
+      <span class="mh-side">2026年10月</span>
+      <span class="journal-name">郑郑的博客</span>
+      <span class="mh-side">Oct. 2026</span>
+    </div>
+    <div class="row row-en">
+      <span class="mh-side">第10期</span>
+      <span class="journal-name" style="font-family:var(--times)">Journal of ZhengDev</span>
+      <span class="mh-side">No.10</span>
+    </div>
+  </header>
+
+  <!-- 题目 / 作者 / 单位 -->
+  <section class="title-block">
+    <h2 class="paper-title">基于静态插桩的移动端原生库行为追踪（示例标题）</h2>
+    <div class="paper-authors">郑郑</div>
+    <div class="paper-affil">（个人博客 · 西安 710072）</div>
+  </section>
+
+  <!-- 摘要 / 关键词 -->
+  <section class="abstract">
+    <span class="label">摘&nbsp;&nbsp;要：</span>
+    <span class="content">针对移动端第三方原生库的黑盒行为难以追踪的问题，提出一种基于静态插桩的轻量方案。该方案在不改动目标库源码的前提下，于关键路径注入探针点位，记录调用序列与数据流走向，并给出典型场景下的工程实践细节。示例正文将用真实技术博客内容替换。</span>
+  </section>
+  <section class="keywords">
+    <span class="label">关键词：</span>
+    <span class="content">静态插桩；行为追踪；移动安全；示例内容</span>
+  </section>
+
+  <!-- 双栏正文 -->
+  <main class="bodycols">
+
+    <h3 class="c1">1&nbsp;&nbsp;引言</h3>
+    <p>移动应用广泛引用第三方原生库，其内部行为对分析者而言往往是不透明的黑盒。传统的动态监控手段依赖调试器或注入框架，在设备版本差异较大时稳定性难以保证。本文围绕静态插桩思路展开，讨论如何在符号层完成探针的植入。</p>
+    <p>全文结构如下：第一节给出整体方法；第二节描述桩点与调用序列的记录机制；第三节以工程样例验证可行性；第四节为结论。示例正文按模板双栏排版，首行缩进两字符，段落间距与五号字宽匹配。</p>
+
+    <figure class="fig-wrap">
+      <div class="fig-placeholder">图位（示例：插桩前后的调用链对比）</div>
+      <figcaption class="fig-caption">图1&nbsp;&nbsp;插桩前后的调用链对比（示例图题，小五宋体）</figcaption>
+    </figure>
+
+    <h4 class="c2">1.1&nbsp;&nbsp;方法总览</h4>
+    <p>桩点选择遵循三条原则：符号可稳定定位、路径覆盖关键分支、桩点开销可忽略。对于导出表中可直接寻址的符号，采用直接插桩；对于符号不可见的目标，退化为基于特征匹配的间接定位。</p>
+    <p>注入过程分为解析、改写、回填三个阶段。解析阶段建立符号地址映射；改写阶段将目标指令替换为跳转序列；回填阶段在跳转目标处保留原指令与恢复现场。三个阶段的正确性由一组契约测试守护。</p>
+
+    <h5 class="c3">桩点记录格式</h5>
+    <p>每条记录包含时间戳、调用地址、返回地址与一组上下文寄存器值。为控制写入开销，记录缓冲采用环形结构，真机实测单桩点单次开销约为微秒级。缓冲水位触发上报，避免高频路径下的磁盘压力。</p>
+
+    <div class="formula">
+      <span class="eq"><i>T</i> = <i>T</i><sub>parse</sub> + <i>T</i><sub>rewrite</sub> + <i>T</i><sub>flush</sub></span>
+      <span class="no">(1)</span>
+    </div>
+    <p>式中：解析、改写、回填三个阶段的耗时之和构成单次注入总开销，公式在页面中居中、序号右对齐，与模板一致。</p>
+
+    <div class="table-wrap">
+      <div class="table-caption">表1&nbsp;&nbsp;典型场景下桩点开销对比（示例表题，小五黑体）</div>
+      <table class="table-placeholder" style="width:100%">
+        <tr><td>场景</td><td>直接插桩</td><td>间接定位</td></tr>
+        <tr><td>符号可见</td><td>0.8µs</td><td>—</td></tr>
+        <tr><td>符号不可见</td><td>—</td><td>3.2µs</td></tr>
+      </table>
+      <p style="text-indent:0;margin-top:4px;font-size:12px;color:var(--muted)">（表内小五号表体，示例数据）</p>
+    </div>
+
+  </main>
+
+  <!-- 文末信息 -->
+  <footer class="paper-foot">
+    <div>收稿日期：2026-10-26</div>
+    <div class="foot-note omit">基金项目：无（无数据源，整行省略）</div>
+    <div class="foot-note omit">作者简介：无（无数据源，整行省略）</div>
+    <div class="foot-note omit">通信作者：无（无数据源，整行省略）</div>
+  </footer>
+
+  <div class="page-number">1</div>
+</article>
+
+<!-- ══════════ 第 2 页：续页版式（展示分页与续页页眉） ══════════ -->
+<article class="sheet" style="height:760px; display:block;">
+
+  <!-- 续页页眉：页码 ｜ 刊名 ｜ 期 -->
+  <header class="cont-masthead">
+    <span class="mh-side">— 2 —</span>
+    <span class="journal-name">郑郑的博客</span>
+    <span class="mh-side">第10期</span>
+  </header>
+
+  <main class="bodycols">
+
+    <h4 class="c2">2&nbsp;&nbsp;插桩链的自动恢复与稳定性</h4>
+    <p>设备差异是注入稳定性的主要来源。不同系统版本下，符号表布局与指令对齐规则可能变化；真机写入还涉及只读段的权限重建。本文的恢复流程在每次会话开始时重放一次基线校验，将失效桩点快速剔除。</p>
+    <p>对重挂钩场景，引擎记录原始字节并在退出时按序还原，保证目标进程可再次启动而不残留探针。对于碎片化严重的机型，校验超时后回退为预编译桩点文件，由远端配置文件驱动。</p>
+
+    <h4 class="c2">3&nbsp;&nbsp;工程样例</h4>
+    <p>选取某常见原生库作为样例目标。基线状态下主路径调用耗时约 12&nbsp;ms；注入单桩后耗时 12.8&nbsp;ms，额外开销约 6.6%；完整记录导出与原库 API 文档逐项比对，一致率为 100%。典型案例可在博客原文章中查看完整数据。</p>
+    <p>后续工作将围绕多进程场景与脱壳后目标的自动适配展开，并为高频调用路径引入采样策略，进一步压低探针开销、提升全量采集的工程可用性。</p>
+
+  </main>
+
+  <footer class="paper-foot">
+    <div>收稿日期：2026-10-26</div>
+  </footer>
+
+  <div class="page-number">2</div>
+</article>
+
+</body>
+</html>

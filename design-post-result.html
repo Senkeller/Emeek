@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<!--
+  Emeek 文章详情页 · 期刊排版实现后效果预览
+  结构完全对应 templates/post.html 渲染产物：
+  - 共享样式加载真实的 static/assets/journal-style.css
+  - 页眉 / 题目作者单位 / 摘要关键词 / 双栏正文 / 收稿日期 / 页码 与模板逐块一致
+  - 浏览器直接打开本文件即可查看（无需 GitHub token）
+-->
+<html data-color-mode="light" data-dark-theme="dark" data-light-theme="light" lang="zh-CN">
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>基于静态插桩的移动端原生库行为追踪（示例标题）</title>
+    <style>
+        body { margin: 0 auto; }
+    </style>
+    <!-- 原版 post.html 的 style block：共享期刊样式显式加载 -->
+    <link rel="stylesheet" href="static/assets/journal-style.css">
+</head>
+<body>
+    <div id="header" style="display:flex;padding-bottom:8px;border-bottom:1px solid #d8d0c2;margin-bottom:16px;">
+        <div style="flex:1"></div>
+        <div class="title-right" style="display:flex;margin:auto 0 0 auto;">
+            <a href="#" class="btn btn-invisible circle" title="Home" style="padding:14px 16px;margin-right:8px;">⌂</a>
+            <a href="#" class="btn btn-invisible circle" title="Issue" style="padding:14px 16px;margin-right:8px;">◉</a>
+            <a class="btn btn-invisible circle" title="切换主题" style="padding:14px 16px;margin-right:8px;">◐</a>
+        </div>
+    </div>
+
+    <div id="journalPaper">
+        <!-- 页眉刊头：两行。第一行中文年月｜站点名｜英文月年；第二行仅真实 No.月份 -->
+        <header class="journal-masthead">
+            <div class="mh-row">
+                <span class="mh-side">2026年10月</span>
+                <span class="mh-center">郑郑的博客</span>
+                <span class="mh-side">Oct. 2026</span>
+            </div>
+            <div class="mh-row journal-issue">
+                <span class="mh-side"></span>
+                <span class="mh-center"></span>
+                <span class="mh-side">No.10</span>
+            </div>
+        </header>
+
+        <!-- 题目 / 作者 / 单位（通栏居中） -->
+        <section class="journal-head">
+            <h1 class="journal-title">基于静态插桩的移动端原生库行为追踪</h1>
+            <div class="journal-authors">郑郑</div>
+            <div class="journal-affil">（个人博客 · 西安 710072）</div>
+            <div class="journal-abstract">
+                <span class="jlabel">摘&nbsp;&nbsp;要：</span>
+                <span class="jtext">针对移动端第三方原生库的黑盒行为难以追踪的问题，提出一种基于静态插桩的轻量方案。该方案在不改动目标库源码的前提下，于关键路径注入探针点位，记录调用序列与数据流走向，并给出典型场景下的工程实践细节。示例正文用于本地预览排版效果，真实文章由博客构建期渲染。</span>
+            </div>
+            <div class="journal-keywords">
+                <span class="jlabel">关键词：</span>
+                <span class="jkw-list"><a class="jkeyword" href="tag.html#Frida">Frida</a>；<a class="jkeyword" href="tag.html#Hook">Hook</a>；<a class="jkeyword" href="tag.html#逆向">逆向</a></span>
+            </div>
+        </section>
+
+        <!-- 双栏正文（markdown-body 渲染产物） -->
+        <div class="journal-paper">
+            <div id="postBody" class="jpage markdown-body">
+                <h2>1&nbsp;&nbsp;引言</h2>
+                <p>移动应用广泛引用第三方原生库，其内部行为对分析者而言往往是不透明的黑盒。传统的动态监控手段依赖调试器或注入框架，在设备版本差异较大时稳定性难以保证。本文围绕静态插桩思路展开，讨论如何在符号层完成探针的植入。</p>
+                <p>全文结构如下：第一节给出整体方法；第二节描述桩点与调用序列的记录机制；第三节以工程样例验证可行性；第四节为结论。示例正文按模板双栏排版，首行缩进两字符，段落间距与五号字宽匹配。</p>
+
+                <figure>
+                    <div style="height:120px;border:1px solid #d8d0c2;background:#f7f3e7;display:flex;align-items:center;justify-content:center;color:#766f65;">图位：插桩前后的调用链对比</div>
+                    <figcaption>图1&nbsp;&nbsp;插桩前后的调用链对比（示例图题，小五宋体）</figcaption>
+                </figure>
+
+                <h3>1.1&nbsp;&nbsp;方法总览</h3>
+                <p>桩点选择遵循三条原则：符号可稳定定位、路径覆盖关键分支、桩点开销可忽略。对于导出表中可直接寻址的符号，采用直接插桩；对于符号不可见的目标，退化为基于特征匹配的间接定位。</p>
+                <p>注入过程分为解析、改写、回填三个阶段。解析阶段建立符号地址映射；改写阶段将目标指令替换为跳转序列；回填阶段在跳转目标处保留原指令与恢复现场。三个阶段的正确性由一组契约测试守护。</p>
+
+                <p>单次注入总开销由三个阶段构成，公式居中、序号右对齐（KaTeX 渲染效果，此处以文本示意）：</p>
+                <div style="text-align:center;margin:0.9em 0;font-family:'Times New Roman',serif;">
+                    T = T<sub>parse</sub> + T<sub>rewrite</sub> + T<sub>flush</sub> <span style="margin-left:16px;">(1)</span>
+                </div>
+
+                <h3>2&nbsp;&nbsp;插桩链的自动恢复与稳定性</h3>
+                <p>设备差异是注入稳定性的主要来源。不同系统版本下，符号表布局与指令对齐规则可能变化；真机写入还涉及只读段的权限重建。本文的恢复流程在每次会话开始时重放一次基线校验，将失效桩点快速剔除。</p>
+                <p>对重挂钩场景，引擎记录原始字节并在退出时按序还原，保证目标进程可再次启动而不残留探针。对于碎片化严重的机型，校验超时后回退为预编译桩点文件，由远端配置文件驱动。</p>
+
+                <table>
+                    <thead><tr><th>场景</th><th>直接插桩</th><th>间接定位</th></tr></thead>
+                    <tbody>
+                        <tr><td>符号可见</td><td>0.8µs</td><td>—</td></tr>
+                        <tr><td>符号不可见</td><td>—</td><td>3.2µs</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>3&nbsp;&nbsp;工程样例</h3>
+                <p>选取某常见原生库作为样例目标。基线状态下主路径调用耗时约 12&nbsp;ms；注入单桩后耗时 12.8&nbsp;ms，额外开销约 6.6%；完整记录导出与原库 API 文档逐项比对，一致率为 100%。典型案例可在博客原文章中查看完整数据。</p>
+                <p>后续工作将围绕多进程场景与脱壳后目标的自动适配展开，并为高频调用路径引入采样策略，进一步压低探针开销、提升全量采集的工程可用性。</p>
+
+                <h3>4&nbsp;&nbsp;结论</h3>
+                <p>本文给出的静态插桩方案能够在保持较低开销的前提下，为移动端第三方原生库建立可复用的行为追踪通道。实验数据表明，符号可见场景下的单桩开销可控制在微秒量级，具备工程落地条件。</p>
+            </div>
+
+            <!-- 文末收稿日期（小五黑体） -->
+            <div class="journal-received">收稿日期：2026-10-26</div>
+
+            <!-- 页码 -->
+            <div class="journal-pagination">1</div>
+        </div>
+    </div>
+
+    <div id="footer" style="margin-top:64px;text-align:center;font-size:small;">
+        Copyright © 2026 <a href="#">郑郑的博客</a> · Powered by Gmeek
+    </div>
+</body>
+</html>
