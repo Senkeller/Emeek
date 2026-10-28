@@ -15,6 +15,27 @@ def css_rule(selector):
     return m.group(1)
 
 
+def _rule_body_by_selector_member(selector):
+    """按「选择器成员」提取规则体，支持组合选择器。
+
+    css_rule 用 re.escape 整体匹配，只能命中「选择器开头就是它」的单条规则。
+    真实样式里标题是组合选择器：
+        .jpage.markdown-body h1,
+        .jpage.markdown-body h2 { ... }
+    本函数按逗号拆分选择器逐段精确比对。
+
+    关键：必须先把 CSS 注释整体剥掉再做 { } 配对解析。
+    注释正文里出现的花括号（例如 "…的块 { … }"）会被朴素正则当成规则边界，
+    导致选择器与规则体错位、匹配不到真实规则。
+    """
+    stripped = re.sub(r"/\*.*?\*/", "", STYLE, flags=re.S)
+    for m in re.finditer(r"([^{}]+)\{([^}]*)\}", stripped):
+        selectors = [x.strip() for x in m.group(1).split(",")]
+        if selector in selectors:
+            return m.group(2)
+    raise AssertionError(f"缺少 CSS 规则（组合选择器成员）：{selector}")
+
+
 def test_post_contains_template_article_regions_and_real_date_mapping():
     assert "journal-masthead" in POST
     assert "journal-title" in POST
@@ -108,20 +129,62 @@ def test_post_render_forwards_issue_labels_as_post_labels():
     assert "postLabels=postLabels" in GMEek.replace(" ", "")
 
 
-def test_paginated_pages_look_like_individual_paper_sheets():
-    """分页后的每页必须是独立「纸页」视觉：白底、细边框、投影、页距，
-    而不是共享一块纸、只用分隔线区分（用户反馈：只见分页线不见纸页）。"""
-    jpage_rule = css_rule(".jpages .jpage")
-    assert "background:" in jpage_rule or "background-color:" in jpage_rule
-    assert "border:" in jpage_rule
-    assert "box-shadow" in jpage_rule
-    # margin 简写或 margin-bottom 都算页距
-    assert "margin:" in jpage_rule or "margin-bottom" in jpage_rule
-    # 页码伪元素（页脚居中页码）
-    after_rule = css_rule(".jpages .jpage::after")
-    assert "counter" in after_rule
-    assert "position:absolute" in after_rule.replace(" ", "")
-    assert "text-align:center" in after_rule.replace(" ", "")
+def test_continuous_layout_spans_all_headings_across_columns():
+    """连续滚动双栏：每一级标题都必须跨栏（column-span: all）。
+
+    连续媒体下 column-fill:auto 会被浏览器强制当作 balance，无法靠它控制
+    填栏顺序。唯一可靠的切分手段是让标题通栏——跨栏元素强制打断栏流，
+    使每个标题之间自然形成一个独立的双栏版面单元。
+    实测 33 篇真实文章，恢复标题跨栏后「仅右栏」组从 23 降到 0。
+    """
+    for sel, label in [
+        (".jpage.markdown-body h1", "h1"),
+        (".jpage.markdown-body h2", "h2"),
+        (".jpage.markdown-body h3", "h3"),
+        (".jpage.markdown-body h4", "h4-h6"),
+    ]:
+        rule = _rule_body_by_selector_member(sel)
+        assert "column-span:all" in rule.replace(" ", ""), f"{label} 必须跨栏"
+
+
+def test_continuous_layout_has_no_fixed_page_height_or_clipping():
+    """连续滚动布局不得有任何固定页高/裁切残留。
+
+    固定高度 + overflow:hidden 是旧分页模型的核心机制（把溢出的块静默裁掉）。
+    连续滚动下这两者都会导致正文丢失，必须彻底移除。
+    """
+    compact = STYLE.replace(" ", "").replace("\n", "")
+    assert "height:780px" not in compact, "不得残留固定页高 780px"
+    for m in re.finditer(r"([^{}]*)\{([^}]*)\}", re.sub(r"/\*.*?\*/", "", STYLE, flags=re.S)):
+        sel, body = m.group(1), m.group(2)
+        if ".jpage" in sel and "overflow:hidden" in body.replace(" ", ""):
+            raise AssertionError(f"选择器 {sel.strip()} 仍在使用 overflow:hidden 裁切正文")
+
+
+def test_continuous_layout_removes_pagination_artifacts():
+    """旧分页模型的所有产物必须清除：.jpages 纸页容器、续页页眉、页码。"""
+    for artifact in [".jpages", ".cont-masthead", ".journal-pagination"]:
+        assert artifact not in STYLE, f"CSS 仍残留分页产物：{artifact}"
+    assert "journal-pagination" not in POST, "模板仍残留页码节点"
+
+
+def test_pagination_engine_is_removed():
+    """分页引擎已退役：文件不存在，且模板不再引用。"""
+    assert not (ROOT / "static/assets/journal-paginate.js").exists(), \
+        "journal-paginate.js 应已删除"
+    assert "journal-paginate" not in POST, "模板仍引用已删除的分页引擎"
+
+
+def test_images_span_all_columns():
+    """含图片的块必须通栏，否则图片被栏线切成左右两半。
+
+    图片是行内元素，在多栏流里无法跨栏续排。实测 27 篇有图文章、84 处图片块，
+    加 p:has(img) 通栏后全部正确显示为容器全宽。
+    """
+    has_img = _rule_body_by_selector_member(".jpage.markdown-body p:has(img)")
+    assert "column-span:all" in has_img.replace(" ", ""), "含图片段落必须 column-span: all"
+    bare = _rule_body_by_selector_member(".jpage.markdown-body a:has(> img)")
+    assert "column-span:all" in bare.replace(" ", ""), "裸 a>img 必须 column-span: all"
 
 
 def test_markdown_body_elements_are_typographically_paper_adapted():
