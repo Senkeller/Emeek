@@ -132,3 +132,26 @@ def test_all_heading_levels_span_columns():
     assert m, "缺少 h4/h5/h6 组合规则"
     body = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S).replace(" ", "").replace("\n", "")
     assert "column-span:all" in body, "h4/h5/h6 必须 column-span: all"
+
+
+def test_only_headings_span_columns():
+    """只有标题跨栏；代码块、列表、引用、表格、图、Alert、Mermaid 留在栏内。
+
+    跨栏元素会强制结束当前栏。技术文章代码密集时若 pre/ul/blockquote 都跨栏，
+    每块都打断栏流，导致左栏只填到一半就换栏。只让标题跨栏可让正文连续填充。
+    """
+    import re
+    # 收集所有声明 column-span: all 的选择器
+    spanning = []
+    for m in re.finditer(r"([^{}]+)\{([^}]*)\}", STYLE, re.S):
+        sel, body = m.group(1), m.group(2)
+        clean = re.sub(r"/\*.*?\*/", "", body, flags=re.S).replace(" ", "").replace("\n", "")
+        if "column-span:all" in clean:
+            spanning.append(sel.strip())
+    joined = " ".join(spanning).lower()
+    # 标题类必须跨栏
+    assert "h1" in joined or "h2" in joined or "h3" in joined, "标题应跨栏"
+    # 这些块必须不跨栏
+    for bad in ["pre", "blockquote", "markdown-alert", "mermaid", "table", "figure"]:
+        hits = [s for s in spanning if bad in s.lower()]
+        assert not hits, f"{bad} 不应跨栏，但出现在: {hits}"
