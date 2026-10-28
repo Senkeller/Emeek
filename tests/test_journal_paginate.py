@@ -87,10 +87,21 @@ def test_journal_columns_fill_left_column_first():
     assert "column-fill:auto" in compact, "缺少 column-fill: auto，分栏会被均衡拆分"
 
 
-def test_journal_columns_do_not_split_paragraphs():
-    """段落内部不应被分栏线切开：段内禁止断栏。"""
-    compact = STYLE.replace(" ", "")
-    assert "break-inside:avoid" in compact or "break-inside: avoid" in STYLE
+def test_paragraphs_may_flow_across_columns():
+    """段落必须允许跨栏续排，否则左栏留白、右栏从中间开始。
+
+    期刊双栏里段落自然跨栏续排是正常排版；只有代码块、表格、图片、
+    Callout、Mermaid 这些块级元素才禁止拆分。若给段落加
+    break-inside: avoid，长段落整段被推到右栏，左栏底部留出大片空白。
+    """
+    import re
+    m = re.search(r"\.jpage\.markdown-body > p \{([^}]*)\}", STYLE)
+    assert m, "缺少 .jpage.markdown-body > p 规则"
+    body = m.group(1)
+    # 先剥离 CSS 注释，避免注释里提到的属性名造成误判
+    body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
+    body = body.replace(" ", "").replace("\n", "")
+    assert "break-inside:avoid" not in body, "段落不应禁止跨栏拆分"
 
 
 def test_pagination_measures_blocks_at_single_column_width():
