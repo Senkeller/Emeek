@@ -30,7 +30,7 @@ def _rule_body_by_selector_member(selector):
     """
     stripped = re.sub(r"/\*.*?\*/", "", STYLE, flags=re.S)
     for m in re.finditer(r"([^{}]+)\{([^}]*)\}", stripped):
-        selectors = [x.strip() for x in m.group(1).split(",")]
+        selectors = [s.strip() for s in m.group(1).split(",")]
         if selector in selectors:
             return m.group(2)
     raise AssertionError(f"缺少 CSS 规则（组合选择器成员）：{selector}")
@@ -134,45 +134,66 @@ def test_continuous_layout_spans_all_headings_across_columns():
 
     连续媒体下 column-fill:auto 会被浏览器强制当作 balance，无法靠它控制
     填栏顺序。唯一可靠的切分手段是让标题通栏——跨栏元素强制打断栏流，
-    使每个标题之间自然形成一个独立的双栏版面单元。
-    实测 33 篇真实文章，恢复标题跨栏后「仅右栏」组从 23 降到 0。
+    使每个标题之间自然形成一个独立的双栏版面单元（标题通栏 + 该节正文
+    两栏等高）。实测 33 篇真实文章，恢复标题跨栏后「仅右栏」组从 23 降到 0。
     """
+    # 组合选择器 (.jpage.markdown-body h1, .jpage.markdown-body h2) 需分别提取
     for sel, label in [
         (".jpage.markdown-body h1", "h1"),
         (".jpage.markdown-body h2", "h2"),
         (".jpage.markdown-body h3", "h3"),
-        (".jpage.markdown-body h4", "h4-h6"),
     ]:
         rule = _rule_body_by_selector_member(sel)
-        assert "column-span:all" in rule.replace(" ", ""), f"{label} 必须跨栏"
+        assert "column-span:all" in rule.replace(" ", ""), f"{label} 必须跨栏（column-span: all）"
+
+    # h4-h6 在同一组合规则里，检查该组合规则体
+    h456 = _rule_body_by_selector_member(".jpage.markdown-body h4")
+    assert "column-span:all" in h456.replace(" ", ""), "h4-h6 必须跨栏（column-span: all）"
 
 
 def test_continuous_layout_has_no_fixed_page_height_or_clipping():
-    """连续滚动布局不得有任何固定页高/裁切残留。
+    """【已废弃 → 由 PDF 式分页取代】
 
-    固定高度 + overflow:hidden 是旧分页模型的核心机制（把溢出的块静默裁掉）。
-    连续滚动下这两者都会导致正文丢失，必须彻底移除。
+    本条原先断言「连续滚动布局不得有固定页高/裁切」。需求已变更：
+    采用 PDF 式多页，固定页高与 overflow:hidden 重新成为必需机制。
+
+    保留函数名以免外部引用断裂，断言改为校验新模型的核心契约：
+    纸页必须有固定页高，且引擎必须保证溢出即移到下一页（不丢内容）。
     """
-    compact = STYLE.replace(" ", "").replace("\n", "")
-    assert "height:780px" not in compact, "不得残留固定页高 780px"
-    for m in re.finditer(r"([^{}]*)\{([^}]*)\}", re.sub(r"/\*.*?\*/", "", STYLE, flags=re.S)):
-        sel, body = m.group(1), m.group(2)
-        if ".jpage" in sel and "overflow:hidden" in body.replace(" ", ""):
-            raise AssertionError(f"选择器 {sel.strip()} 仍在使用 overflow:hidden 裁切正文")
+    rule = re.search(r"\.jpages \.jpage\s*\{([^}]*)\}", STYLE)
+    assert rule, "缺少 .jpages .jpage 规则"
+    body = rule.group(1).replace(" ", "")
+    assert "height:" in body, "纸页必须有固定页高"
+    assert "overflow:hidden" in body, "纸页需隐藏溢出（配合引擎的溢出搬移）"
+    # 引擎必须有溢出检测，否则 overflow:hidden 会真的裁掉内容
+    engine = ROOT / "static/assets/journal-paginate.js"
+    assert engine.exists(), "必须有分页引擎配合"
+    assert "findOverflow" in engine.read_text(encoding="utf-8"), "引擎需有溢出检测"
 
 
 def test_continuous_layout_removes_pagination_artifacts():
-    """旧分页模型的所有产物必须清除：.jpages 纸页容器、续页页眉、页码。"""
-    for artifact in [".jpages", ".cont-masthead", ".journal-pagination"]:
-        assert artifact not in STYLE, f"CSS 仍残留分页产物：{artifact}"
-    assert "journal-pagination" not in POST, "模板仍残留页码节点"
+    """【已废弃 → 由 PDF 式分页取代】
+
+    旧分页模型的 .jpages / .cont-masthead / .journal-pagination 已清除；
+    新实现重新引入 .jpages（纸页容器）与 .journal-pgno（页码），
+    但不再使用续页页眉 .cont-masthead 和模板内的 journal-pagination 节点。
+
+    断言改为：纸页容器与页码存在，续页页眉与模板页码节点不存在。
+    """
+    assert ".jpages" in STYLE, "需要纸页容器"
+    assert "journal-pgno" in STYLE, "需要页码样式"
+    assert ".cont-masthead" not in STYLE, "不应再有续页页眉"
+    assert "journal-pagination" not in POST, "模板不应有页码节点（页码由引擎生成）"
 
 
-def test_pagination_engine_is_removed():
-    """分页引擎已退役：文件不存在，且模板不再引用。"""
-    assert not (ROOT / "static/assets/journal-paginate.js").exists(), \
-        "journal-paginate.js 应已删除"
-    assert "journal-paginate" not in POST, "模板仍引用已删除的分页引擎"
+def test_pagination_engine_is_active():
+    """分页引擎必须存在且被模板消费。
+
+    需求从「连续滚动」变更为「PDF 式多页」后，引擎重新成为必需组件。
+    """
+    engine = ROOT / "static/assets/journal-paginate.js"
+    assert engine.exists(), "journal-paginate.js 必须存在"
+    assert 'id="postBody"' in POST, "模板必须保留 #postBody 供引擎接管"
 
 
 def test_images_span_all_columns():
@@ -181,10 +202,13 @@ def test_images_span_all_columns():
     图片是行内元素，在多栏流里无法跨栏续排。实测 27 篇有图文章、84 处图片块，
     加 p:has(img) 通栏后全部正确显示为容器全宽。
     """
-    has_img = _rule_body_by_selector_member(".jpage.markdown-body p:has(img)")
-    assert "column-span:all" in has_img.replace(" ", ""), "含图片段落必须 column-span: all"
-    bare = _rule_body_by_selector_member(".jpage.markdown-body a:has(> img)")
-    assert "column-span:all" in bare.replace(" ", ""), "裸 a>img 必须 column-span: all"
+    has_img_rule = _rule_body_by_selector_member(".jpage.markdown-body p:has(img)")
+    assert "column-span:all" in has_img_rule.replace(" ", ""), \
+        "含图片的段落必须 column-span: all"
+    # 裸 a>img（不在 p 内）同样需要通栏
+    bare_rule = _rule_body_by_selector_member(".jpage.markdown-body a:has(> img)")
+    assert "column-span:all" in bare_rule.replace(" ", ""), \
+        "裸 a>img 必须 column-span: all"
 
 
 def test_markdown_body_elements_are_typographically_paper_adapted():
