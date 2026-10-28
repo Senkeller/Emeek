@@ -59,3 +59,75 @@ def test_missing_metadata_uses_config_then_issue_and_hides_empty_fields():
     assert merged["affiliation"] == "单位"
     assert merged["fund"] is None
     assert merged["keywords"] == ["技术"]
+
+
+def test_string_keyword_value_is_one_normalized_keyword():
+    """字符串关键词整体归一化，不应被拆成单字符。"""
+    merged = merge_journal_meta(
+        {},
+        {"journalKeywords": "  期刊, 技术  "},
+        {"labels": []},
+    )
+    assert merged["keywords"] == ["期刊, 技术"]
+
+
+def test_issue_author_is_used_when_config_author_is_missing():
+    """Issue 条目中的 author 应作为全局作者缺省值。"""
+    merged = merge_journal_meta(
+        {},
+        {"title": "站点标题"},
+        {"author": "issue-login", "labels": []},
+    )
+    assert merged["author"] == "issue-login"
+
+
+def test_add_one_post_json_captures_issue_author(tmp_path):
+    """GitHub Issue 作者应写入传给 createPostHtml 的文章条目。"""
+    import datetime
+    import types
+
+    from Gmeek import GMEEK
+
+    blog = object.__new__(GMEEK)
+    blog.options = types.SimpleNamespace(repo_name="owner/repo")
+    blog.root_dir = "docs/"
+    blog.post_dir = "docs/post/"
+    blog.backup_dir = str(tmp_path) + "/"
+    blog.TZ = datetime.timezone(datetime.timedelta(hours=8))
+    blog.blogBase = {
+        "singlePage": [],
+        "urlMode": "issue",
+        "rssSplit": "sentence",
+        "i18n": "CN",
+        "style": "",
+        "script": "",
+        "head": "",
+        "ogImage": "og.png",
+        "yearColorList": ["#000"],
+        "postListJson": {},
+    }
+
+    class Label:
+        def __init__(self, name):
+            self.name = name
+
+    class Comments:
+        totalCount = 0
+
+    class Issue:
+        number = 7
+        title = "测试文章"
+        body = "正文。"
+        labels = [Label("技术")]
+        created_at = datetime.datetime(2026, 1, 1)
+        user = types.SimpleNamespace(login="issue-login")
+
+        def get_comments(self):
+            return Comments()
+
+        def get_events(self):
+            return []
+
+    list_name = blog.addOnePostJson(Issue())
+    assert list_name == "postListJson"
+    assert blog.blogBase["postListJson"]["P7"]["author"] == "issue-login"

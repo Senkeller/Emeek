@@ -79,6 +79,9 @@ def merge_journal_meta(article_meta, config, issue):
         or _clean_text(config.get("journalAffiliation"))
     )
     keywords = article_meta.get("keywords") or config.get("journalKeywords") or labels
+    # 字符串关键词视为一个完整关键词，避免被逐字符拆散
+    if isinstance(keywords, str):
+        keywords = [keywords]
     keywords = [str(item).strip() for item in keywords if str(item).strip()]
     return {
         "author": author,
@@ -102,7 +105,7 @@ class GMEEK():
         self.post_dir=self.root_dir+self.post_folder
 
         user = Github(self.options.github_token)
-        self.repo = self.get_repo(user, options.repo_name)
+        self.repo = self.get_repo(user, self.options.repo_name)
         self.feed = FeedGenerator()
         self.oldFeedString=''
 
@@ -253,7 +256,7 @@ class GMEEK():
         postBase["head"]=issue["head"]
         postBase["top"]=issue["top"]
         postBase["postSourceUrl"]=issue["postSourceUrl"]
-        postBase["repoName"]=options.repo_name
+        postBase["repoName"]=self.options.repo_name
         postBase["journalMeta"]=merge_journal_meta(article_meta, self.blogBase, issue)
         
         if issue["labels"][0] in self.blogBase["singlePage"]:
@@ -392,7 +395,9 @@ class GMEEK():
             self.blogBase[listJsonName][postNum]["postTitle"]=issue.title
             self.blogBase[listJsonName][postNum]["postUrl"]=urllib.parse.quote(gen_Html[len(self.root_dir):])
 
-            self.blogBase[listJsonName][postNum]["postSourceUrl"]="https://github.com/"+options.repo_name+"/issues/"+str(issue.number)
+            self.blogBase[listJsonName][postNum]["postSourceUrl"]="https://github.com/"+self.options.repo_name+"/issues/"+str(issue.number)
+            # 捕获 Issue 作者（GitHub 用户名），作为期刊作者兜底字段
+            self.blogBase[listJsonName][postNum]["author"]=issue.user.login
             self.blogBase[listJsonName][postNum]["commentNum"]=issue.get_comments().totalCount
 
             if issue.body==None:
