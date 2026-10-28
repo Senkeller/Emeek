@@ -155,3 +155,19 @@ def test_only_headings_span_columns():
     for bad in ["pre", "blockquote", "markdown-alert", "mermaid", "table", "figure"]:
         hits = [s for s in spanning if bad in s.lower()]
         assert not hits, f"{bad} 不应跨栏，但出现在: {hits}"
+
+
+def test_page_capacity_multiplies_by_column_count():
+    """分页容量必须乘以栏数，否则每页只装半页内容。
+
+    块高按单栏宽度测量，而每页由 CSS 分两栏排版。若容量只取单栏高度，
+    每页仅容纳约半页内容，左栏填不满就溢出到右栏，出现大片留白。
+    """
+    compact = PAGINATE_TEXT.replace(" ", "").replace("\n", "")
+    assert "columns:2" in compact, "引擎需声明每页栏数"
+    assert "getSingleColumnHeight" in compact, "需区分单栏高度与总容量"
+    # 容量计算必须乘栏数
+    import re
+    m = re.search(r"functiongetUsableHeight\(\)\{(.*?)\}", PAGINATE_TEXT.replace(" ", "").replace("\n", ""))
+    assert m, "缺少 getUsableHeight"
+    assert "*columns" in m.group(1), "getUsableHeight 必须乘以栏数"
