@@ -118,3 +118,17 @@ def test_pagination_measures_blocks_at_single_column_width():
     # 栏间距从计算样式读取，而非硬编码
     assert "columnGap" in compact
     assert "getComputedStyle" in compact
+
+
+def test_all_heading_levels_span_columns():
+    """所有标题层级都必须跨栏，不能被栏线切开。
+
+    h2/h3 已跨栏，但 h4/h5/h6 若遗漏 column-span: all，
+    三级以下标题会挤在单栏里被截断，破坏章节层级。
+    """
+    import re
+    m = re.search(r"\.jpage\.markdown-body h4,\s*\n\.jpage\.markdown-body h5,\s*\n"
+                  r"\.jpage\.markdown-body h6 \{([^}]*)\}", STYLE)
+    assert m, "缺少 h4/h5/h6 组合规则"
+    body = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S).replace(" ", "").replace("\n", "")
+    assert "column-span:all" in body, "h4/h5/h6 必须 column-span: all"
