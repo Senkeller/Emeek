@@ -61,14 +61,17 @@
 
 {% block content %}
 <div id="journalPaper">
-    <header class="journal-masthead">
+    <header class="journal-masthead" {% if blogBase.get('createdDate','')!='' %}data-issue="第{{ blogBase['createdDate'][5:7]|int }}期 / No.{{ blogBase['createdDate'][5:7]|int }}"{% endif %}>
+        <a class="journal-logo-link" href="{{ blogBase['homeUrl'] }}" aria-label="{{ blogBase['title'] }}">
+            <img class="journal-logo" src="{{ blogBase['homeUrl'] }}/assets/journal-logo.png" alt="{{ blogBase['title'] }}" width="400" height="96">
+        </a>
         <div class="mh-row">
             <span class="mh-side">{% if blogBase.get('createdDate','')!='' %}{{ blogBase['createdDate'][0:4] }}年{{ blogBase['createdDate'][5:7] }}月{% endif %}</span>
             <span class="mh-center">{{ blogBase['title'] }}</span>
             <span class="mh-side">{% if blogBase.get('createdDate','')!='' %}{{ ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][blogBase['createdDate'][5:7]|int] }}. {{ blogBase['createdDate'][0:4] }}{% endif %}</span>
         </div>
         <div class="mh-row journal-issue">
-            <span class="mh-side"></span>
+            <span class="mh-side journal-issue-prefix">{% if blogBase.get('createdDate','')!='' %}第{{ blogBase['createdDate'][5:7]|int }}期{% endif %}</span>
             <span class="mh-center"></span>
             <span class="mh-side">{% if blogBase.get('createdDate','')!='' %}No.{{ blogBase['createdDate'][5:7]|int }}{% endif %}</span>
         </div>

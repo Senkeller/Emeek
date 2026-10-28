@@ -36,6 +36,20 @@ def test_css_cont_masthead_exists():
     """续页页眉样式（页码｜刊名｜期）必须存在，引擎渲染才有效果。"""
     # 设计稿 preview 第 2 页的续页页眉
     assert ".cont-masthead" in STYLE or ".journal-cont" in STYLE
+
+
+def test_paginator_continuation_header_reads_issue_number():
+    """续页页眉必须从模板的刊头期号读取，而不是硬编码。
+
+    分页引擎读取 .journal-masthead 上的 data-issue 属性，续页页眉显示
+    「第X期 / No.X」，保证首页刊头与续页刊头期号一致。
+    """
+    # 引擎读取 data-issue 属性
+    assert "data-issue" in PAGINATE_TEXT
+    # 续页页眉渲染期号（中文 + 英文前缀）
+    assert "第" in PAGINATE_TEXT or "No." in PAGINATE_TEXT
+    # 续页页眉用 DOM 文本接口设置，不直接拼 HTML（防注入）
+    assert "textContent" in PAGINATE_TEXT
 """分页引擎的语义块保护契约测试。
 
 分页引擎必须把代码块、表格、图片、Callout、Mermaid 视作不可拆分的块，

@@ -155,3 +155,29 @@ def test_optional_journal_footer_has_small_print_style():
     rule = css_rule(".journal-meta-foot")
     assert "font-size" in rule
     assert "border-top" in rule
+
+
+def test_post_template_contains_local_logo_markup():
+    """期刊 logo 必须由仓库内静态资源承载，而不是依赖 GitHub 临时附件地址。"""
+    assert "journal-logo-link" in POST
+    assert "journal-logo" in POST
+    # 本地静态资源 URL（homeUrl 起头），而非外部 user-attachments 地址
+    assert 'journal-logo.png' in POST
+    assert "user-attachments" not in POST
+
+
+def test_post_template_has_bilingual_issue_row():
+    """刊头第二行左右应为中英文期号对照：左侧第X期、右侧No.X。"""
+    assert "journal-issue-prefix" in POST
+    assert "第{{ blogBase['createdDate'][5:7]|int }}期" in POST
+    # 中英期号来自同一个月，避免两边月份错位
+    assert POST.count("createdDate'][5:7]|int }}") >= 2
+
+
+def test_journal_styles_define_logo_responsive_rules():
+    """logo 样式必须是响应式的：桌面限宽、移动端缩小、透明保持。"""
+    assert ".journal-logo" in STYLE
+    assert "max-width:min(100%,420px)" in STYLE.replace(" ", "")
+    assert "object-fit:contain" in STYLE.replace(" ", "")
+    assert ".journal-logo-link:focus-visible" in STYLE
+    assert "height:auto" in css_rule(".journal-logo").replace(" ", "")
