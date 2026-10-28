@@ -76,17 +76,19 @@
 
     <section class="journal-head">
         <h1 class="journal-title">{{ blogBase['postTitle'] }}</h1>
-        {% if blogBase.get('journalAuthor','')!='' -%}
-        <div class="journal-authors">{{ blogBase['journalAuthor'] }}</div>
+        {% set journalMeta = blogBase.get('journalMeta') or {} -%}
+        {% set postLabels = journalMeta.get('keywords') if journalMeta.get('keywords') else postLabels -%}
+        {% if journalMeta.get('author') -%}
+        <div class="journal-authors">{{ journalMeta['author'] }}</div>
         {%- else -%}
         <div class="journal-authors">{{ blogBase['displayTitle'] }}</div>
         {%- endif %}
-        {% if blogBase.get('journalAffiliation','')!='' -%}
-        <div class="journal-affil">{{ blogBase['journalAffiliation'] }}</div>
+        {% if journalMeta.get('affiliation') -%}
+        <div class="journal-affil">{{ journalMeta['affiliation'] }}</div>
         {%- endif %}
-        {% if blogBase.get('description','')!='' -%}
+        {% if journalMeta.get('abstract') -%}
         <div class="journal-abstract">
-            <span class="jlabel">摘&nbsp;&nbsp;要：</span><span class="jtext">{{ blogBase['description'] }}</span>
+            <span class="jlabel">摘&nbsp;&nbsp;要：</span><span class="jtext">{{ journalMeta['abstract'] }}</span>
         </div>
         {%- endif %}
         {% if postLabels|length>0 -%}
@@ -99,11 +101,25 @@
 
     <div class="journal-paper">
         <div id="postBody" class="jpage markdown-body">{{ blogBase['postBody'] }}</div>
-        {% if blogBase.get('createdDate','')!='' -%}
-        <div class="journal-received">收稿日期：{{ blogBase['createdDate'] }}</div>
-        {%- endif %}
         <div class="journal-pagination" aria-label="Page number">1</div>
     </div>
+
+    {% if journalMeta.get('receivedDate') or journalMeta.get('fund') or journalMeta.get('authorBio') or journalMeta.get('correspondingAuthor') -%}
+    <footer class="journal-meta-foot">
+        {% if journalMeta.get('receivedDate') -%}
+        <div class="journal-received">收稿日期：{{ journalMeta['receivedDate'] }}</div>
+        {%- endif %}
+        {% if journalMeta.get('fund') -%}
+        <div>基金项目：{{ journalMeta['fund'] }}</div>
+        {%- endif %}
+        {% if journalMeta.get('authorBio') -%}
+        <div>作者简介：{{ journalMeta['authorBio'] }}</div>
+        {%- endif %}
+        {% if journalMeta.get('correspondingAuthor') -%}
+        <div>通信作者：{{ journalMeta['correspondingAuthor'] }}</div>
+        {%- endif %}
+    </footer>
+    {%- endif %}
 </div>
 <div style="font-size:small;margin-top:8px;float:right;">{{ blogBase['bottomText'] }}</div>
 {% if blogBase['needComment']==1 %}

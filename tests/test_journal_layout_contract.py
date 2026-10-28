@@ -28,6 +28,14 @@ def test_post_contains_template_article_regions_and_real_date_mapping():
     assert 'postBase["createdDate"]=issue.get("createdDate","")' in GMEek.replace(" ", "")
 
 
+def test_template_uses_journal_meta_and_hides_optional_footer_rows():
+    assert "journalMeta" in POST
+    assert "journalMeta['author']" in POST or 'journalMeta["author"]' in POST
+    assert "journalMeta['fund']" in POST or 'journalMeta["fund"]' in POST
+    assert "journalMeta['authorBio']" in POST or 'journalMeta["authorBio"]' in POST
+    assert "journalMeta['correspondingAuthor']" in POST or 'journalMeta["correspondingAuthor"]' in POST
+
+
 def test_post_uses_semicolon_keywords_with_clickable_label_links():
     assert "jkeyword" in POST
     assert "tag.html#" in POST
