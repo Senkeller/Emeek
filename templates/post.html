@@ -129,8 +129,13 @@
 {% endblock %}
 
 {% block script %}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.2/dist/mermaid.min.js"></script>
+<script src="{{ blogBase['homeUrl'] }}/assets/journal-markdown.js"></script>
 <script>
 document.getElementById("pathHome").setAttribute("d",IconList["home"]);
+if (window.JournalMarkdownAdapter) {
+    window.JournalMarkdownAdapter.init(document.getElementById("postBody"));
+}
 {% if blogBase['showPostSource']==1 %}document.getElementById("pathIssue").setAttribute("d",IconList["github"]);{% endif %}
 {% if blogBase['commentNum']>0 -%}
     cmButton=document.getElementById("cmButton");
