@@ -171,3 +171,14 @@ def test_page_capacity_multiplies_by_column_count():
     m = re.search(r"functiongetUsableHeight\(\)\{(.*?)\}", PAGINATE_TEXT.replace(" ", "").replace("\n", ""))
     assert m, "缺少 getUsableHeight"
     assert "*columns" in m.group(1), "getUsableHeight 必须乘以栏数"
+
+
+def test_wide_aside_blocks_span_columns():
+    """宽内容块（ASCII 图/树形结构/对比图）必须跨栏，否则结构被打乱。
+
+    代码块若只有单栏宽度，树形缩进和 emoji 分层会被换行挤坏。
+    引擎按最长行长度判定：超过阈值则标记为跨栏块。
+    """
+    compact = PAGINATE_TEXT.replace(" ", "").replace("\n", "")
+    assert "isWideBlock" in compact or "wideBlock" in compact, "引擎需识别宽内容块"
+    assert "columnSpan" in compact, "宽内容块需设置 column-span"
