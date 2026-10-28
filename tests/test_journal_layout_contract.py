@@ -142,3 +142,16 @@ def test_markdown_body_elements_are_typographically_paper_adapted():
     # 分隔线细线
     hr_rule = css_rule(".jpage.markdown-body hr")
     assert "background" in hr_rule.replace(" ", "") or "border" in hr_rule.replace(" ", "")
+def test_markdown_adapter_elements_are_cross_column_and_page_safe():
+    """Callout 与 Mermaid 必须跨双栏且不跨页拆分。"""
+    assert ".jpage.markdown-body .markdown-alert" in STYLE
+    assert ".jpage.markdown-body .mermaid" in STYLE
+    assert "break-inside:avoid" in STYLE.replace(" ", "")
+
+
+def test_optional_journal_footer_has_small_print_style():
+    """文章元信息页脚使用小五号字与细分隔线。"""
+    assert ".journal-meta-foot" in STYLE
+    rule = css_rule(".journal-meta-foot")
+    assert "font-size" in rule
+    assert "border-top" in rule
