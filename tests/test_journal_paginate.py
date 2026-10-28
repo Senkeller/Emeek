@@ -36,3 +36,28 @@ def test_css_cont_masthead_exists():
     """续页页眉样式（页码｜刊名｜期）必须存在，引擎渲染才有效果。"""
     # 设计稿 preview 第 2 页的续页页眉
     assert ".cont-masthead" in STYLE or ".journal-cont" in STYLE
+"""分页引擎的语义块保护契约测试。
+
+分页引擎必须把代码块、表格、图片、Callout、Mermaid 视作不可拆分的块，
+否则读者会在两页之间看到被截断的代码或图表。
+"""
+from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
+PAGINATE_PATH = ROOT / "static/assets/journal-paginate.js"
+PAGINATE_TEXT = PAGINATE_PATH.read_text(encoding="utf-8") if PAGINATE_PATH.exists() else ""
+
+
+def test_pagination_source_names_semantic_blocks_as_page_safe():
+    assert PAGINATE_TEXT, "缺少 static/assets/journal-paginate.js"
+    lowered = PAGINATE_TEXT.lower()
+    for selector in ["pre", "table", "figure", "markdown-alert", "mermaid"]:
+        assert selector in lowered, f"分页引擎未处理语义块：{selector}"
+
+
+def test_pagination_marks_blocks_break_inside_avoid():
+    assert "breakinside" in PAGINATE_TEXT.replace(" ", "").lower()
+
+
+def test_pagination_keeps_mobile_bypass():
+    assert "720" in PAGINATE_TEXT
