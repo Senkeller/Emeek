@@ -182,3 +182,13 @@ def test_wide_aside_blocks_span_columns():
     compact = PAGINATE_TEXT.replace(" ", "").replace("\n", "")
     assert "isWideBlock" in compact or "wideBlock" in compact, "引擎需识别宽内容块"
     assert "columnSpan" in compact, "宽内容块需设置 column-span"
+
+
+def test_wide_block_detection_handles_clipboard_wrapper():
+    """代码块常被 journal-post.js 包进 div.snippet-clipboard-content。
+
+    分页引擎提取到的直接子元素因此是 DIV 而非 PRE；若只认 PRE，
+    宽代码块永远检测不到，树形结构会被单栏挤坏。
+    """
+    compact = PAGINATE_TEXT.replace(" ", "").replace("\n", "")
+    assert "querySelector('pre,table')" in compact or 'querySelector("pre,table")' in compact
