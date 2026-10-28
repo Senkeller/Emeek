@@ -50,8 +50,6 @@
     return pages;
   }
 
-<<<<<<< HEAD
-=======
   function isPageSafe(node) {
     if (!node || node.nodeType !== 1) return false;
     return /^(PRE|TABLE|FIGURE)$/.test(node.tagName) ||
@@ -67,7 +65,6 @@
     });
   }
 
->>>>>>> 1e90591 (feat(journal): protect semantic blocks during pagination)
   /* ==================================================================
      主流程
      ================================================================== */
@@ -92,10 +89,7 @@
       blocks.push(postBody.firstChild);
       postBody.removeChild(postBody.firstChild);
     }
-<<<<<<< HEAD
-=======
     blocks = collectBlocks(blocks);
->>>>>>> 1e90591 (feat(journal): protect semantic blocks during pagination)
 
     /* 2. 测量每块高度：clone 进隐藏测量容器（单栏自然流，读 offsetHeight）。
           测量容器宽度与正文容器一致，字体/行高从 .jpage 继承。 */
