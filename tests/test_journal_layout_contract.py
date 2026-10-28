@@ -127,9 +127,10 @@ def test_paginated_pages_look_like_individual_paper_sheets():
 def test_markdown_body_elements_are_typographically_paper_adapted():
     """markdown 正文元素在期刊排版里应有论文化适配，而非默认 markdown 风格：
     代码块跨栏/不挤压、标题间距收紧、引用/列表与正文密度一致。"""
-    # 代码块跨栏（column-span:all），避免在双栏里被压窄
+    # 代码块留在栏内（不跨栏）：跨栏会打断栏流，技术文章左栏会填不满
     pre_rule = css_rule(".jpage.markdown-body pre")
-    assert "column-span:all" in pre_rule.replace(" ", "")
+    assert "column-span:all" not in pre_rule.replace(" ", "")
+    assert "overflow:auto" in pre_rule.replace(" ", "")
     # 行内代码用宋体/灰底，区别于默认粗体块
     assert "code" in STYLE
     # 引用块左侧竖线、灰褐文字（论文引文风格）
