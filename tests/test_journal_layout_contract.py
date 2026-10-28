@@ -98,3 +98,39 @@ def test_post_render_forwards_issue_labels_as_post_labels():
     assert "postLabels=issue.get(\"labels\",[])" in GMEek.replace(" ", "")
     # renderHtml 的渲染上下文包含 postLabels，且必须作为模板变量传入
     assert "postLabels=postLabels" in GMEek.replace(" ", "")
+
+
+def test_paginated_pages_look_like_individual_paper_sheets():
+    """分页后的每页必须是独立「纸页」视觉：白底、细边框、投影、页距，
+    而不是共享一块纸、只用分隔线区分（用户反馈：只见分页线不见纸页）。"""
+    jpage_rule = css_rule(".jpages .jpage")
+    assert "background:" in jpage_rule or "background-color:" in jpage_rule
+    assert "border:" in jpage_rule
+    assert "box-shadow" in jpage_rule
+    # margin 简写或 margin-bottom 都算页距
+    assert "margin:" in jpage_rule or "margin-bottom" in jpage_rule
+    # 页码伪元素（页脚居中页码）
+    after_rule = css_rule(".jpages .jpage::after")
+    assert "counter" in after_rule
+    assert "position:absolute" in after_rule.replace(" ", "")
+    assert "text-align:center" in after_rule.replace(" ", "")
+
+
+def test_markdown_body_elements_are_typographically_paper_adapted():
+    """markdown 正文元素在期刊排版里应有论文化适配，而非默认 markdown 风格：
+    代码块跨栏/不挤压、标题间距收紧、引用/列表与正文密度一致。"""
+    # 代码块跨栏（column-span:all），避免在双栏里被压窄
+    pre_rule = css_rule(".jpage.markdown-body pre")
+    assert "column-span:all" in pre_rule.replace(" ", "")
+    # 行内代码用宋体/灰底，区别于默认粗体块
+    assert "code" in STYLE
+    # 引用块左侧竖线、灰褐文字（论文引文风格）
+    blockquote_rule = css_rule(".jpage.markdown-body blockquote")
+    assert "border-left" in blockquote_rule.replace(" ", "")
+    assert "margin:" in blockquote_rule.replace(" ", "")
+    # 列表紧排版
+    li_rule = css_rule(".jpage.markdown-body li")
+    assert "margin:" in li_rule.replace(" ", "")
+    # 分隔线细线
+    hr_rule = css_rule(".jpage.markdown-body hr")
+    assert "background" in hr_rule.replace(" ", "") or "border" in hr_rule.replace(" ", "")
