@@ -35,6 +35,62 @@ IconBase={
     "check":"M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
 }
 ######################################################################################
+# 期刊元数据辅助函数：单篇 gmeek-meta 块解析 + 字段归并。
+# 与 GitHub CLI 入口相互独立，确保 `from Gmeek import ...` 可安全导入。
+GMEek_META_RE = re.compile(
+    r"<!--\s*gmeek-meta\s*(\{.*?\})\s*-->", re.DOTALL
+)
+
+
+def extract_journal_meta(markdown):
+    """提取单篇期刊元信息，并从正文中移除元数据块。"""
+    match = GMEek_META_RE.search(markdown or "")
+    if not match:
+        return {}, markdown or ""
+    try:
+        value = json.loads(match.group(1))
+    except (TypeError, json.JSONDecodeError):
+        return {}, markdown or ""
+    if not isinstance(value, dict):
+        return {}, markdown or ""
+    return value, markdown[:match.start()] + markdown[match.end():]
+
+
+def _clean_text(value):
+    """归一化文本字段：None 或空白字符串统一收敛为 None（隐藏空字段语义）。"""
+    if value is None:
+        return None
+    value = str(value).strip()
+    return value or None
+
+
+def merge_journal_meta(article_meta, config, issue):
+    """合并单篇配置、全局配置和 Issue 兜底字段。"""
+    ignored = set(config.get("journalIgnoredLabels", []))
+    labels = [label for label in issue.get("labels", []) if label not in ignored]
+    author = (
+        _clean_text(article_meta.get("author"))
+        or _clean_text(config.get("journalAuthor"))
+        or _clean_text(issue.get("author"))
+        or _clean_text(config.get("title"))
+    )
+    affiliation = (
+        _clean_text(article_meta.get("affiliation"))
+        or _clean_text(config.get("journalAffiliation"))
+    )
+    keywords = article_meta.get("keywords") or config.get("journalKeywords") or labels
+    keywords = [str(item).strip() for item in keywords if str(item).strip()]
+    return {
+        "author": author,
+        "affiliation": affiliation,
+        "abstract": _clean_text(article_meta.get("abstract")) or _clean_text(issue.get("description")) or _clean_text(config.get("journalDefaultAbstract")),
+        "keywords": keywords,
+        "receivedDate": _clean_text(article_meta.get("receivedDate")) or _clean_text(issue.get("createdDate")),
+        "fund": _clean_text(article_meta.get("fund")) or _clean_text(config.get("journalFund")),
+        "authorBio": _clean_text(article_meta.get("authorBio")) or _clean_text(config.get("journalAuthorBio")),
+        "correspondingAuthor": _clean_text(article_meta.get("correspondingAuthor")) or _clean_text(config.get("journalCorrespondingAuthor")),
+    }
+######################################################################################
 class GMEEK():
     def __init__(self,options):
         self.options=options
@@ -126,7 +182,11 @@ class GMEEK():
         return user.get_repo(repo)
 
     def markdown2html(self, mdstr):
-        payload = {"text": mdstr, "mode": "gfm"}
+        payload = {
+            "text": mdstr,
+            "mode": "gfm",
+            "context": self.options.repo_name,
+        }
         headers = {"Authorization": "token {}".format(self.options.github_token)}
         try:
             response = requests.post("https://api.github.com/markdown", json=payload, headers=headers)
@@ -147,8 +207,9 @@ class GMEEK():
     def createPostHtml(self,issue):
         mdFileName=re.sub(r'[<>:/\\|?*\"]|[\0-\31]', '-', issue["postTitle"])
         f = open(self.backup_dir+mdFileName+".md", 'r', encoding='UTF-8')
-        post_body=self.markdown2html(f.read())
+        article_meta, mdstr = extract_journal_meta(f.read())
         f.close()
+        post_body=self.markdown2html(mdstr)
 
         postBase=self.blogBase.copy()
 
@@ -193,6 +254,7 @@ class GMEEK():
         postBase["top"]=issue["top"]
         postBase["postSourceUrl"]=issue["postSourceUrl"]
         postBase["repoName"]=options.repo_name
+        postBase["journalMeta"]=merge_journal_meta(article_meta, self.blogBase, issue)
         
         if issue["labels"][0] in self.blogBase["singlePage"]:
             postBase["bottomText"]=''
@@ -447,80 +509,81 @@ class GMEEK():
         return fileName
 
 ######################################################################################
-parser = argparse.ArgumentParser()
-parser.add_argument("github_token", help="github_token")
-parser.add_argument("repo_name", help="repo_name")
-parser.add_argument("--issue_number", help="issue_number", default=0, required=False)
-options = parser.parse_args()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("github_token", help="github_token")
+    parser.add_argument("repo_name", help="repo_name")
+    parser.add_argument("--issue_number", help="issue_number", default=0, required=False)
+    options = parser.parse_args()
 
-blog=GMEEK(options)
+    blog=GMEEK(options)
 
-if not os.path.exists("blogBase.json"):
-    print("blogBase is not exists, runAll")
-    blog.runAll()
-else:
-    if os.path.exists(blog.root_dir+'rss.xml'):
-        oldFeedFile=open(blog.root_dir+'rss.xml','r',encoding='utf-8')
-        blog.oldFeedString=oldFeedFile.read()
-        oldFeedFile.close()
-    if options.issue_number=="0" or options.issue_number=="":
-        print("issue_number=='0', runAll")
+    if not os.path.exists("blogBase.json"):
+        print("blogBase is not exists, runAll")
         blog.runAll()
     else:
-        f=open("blogBase.json","r")
-        print("blogBase is exists and issue_number!=0, runOne")
-        oldBlogBase=json.loads(f.read())
-        for key, value in oldBlogBase.items():
-            blog.blogBase[key] = value
-        f.close()
-        blog.blogBase["labelColorDict"]=blog.labelColorDict
-        blog.runOne(options.issue_number)
+        if os.path.exists(blog.root_dir+'rss.xml'):
+            oldFeedFile=open(blog.root_dir+'rss.xml','r',encoding='utf-8')
+            blog.oldFeedString=oldFeedFile.read()
+            oldFeedFile.close()
+        if options.issue_number=="0" or options.issue_number=="":
+            print("issue_number=='0', runAll")
+            blog.runAll()
+        else:
+            f=open("blogBase.json","r")
+            print("blogBase is exists and issue_number!=0, runOne")
+            oldBlogBase=json.loads(f.read())
+            for key, value in oldBlogBase.items():
+                blog.blogBase[key] = value
+            f.close()
+            blog.blogBase["labelColorDict"]=blog.labelColorDict
+            blog.runOne(options.issue_number)
 
-listFile=open("blogBase.json","w")
-listFile.write(json.dumps(blog.blogBase))
-listFile.close()
+    listFile=open("blogBase.json","w")
+    listFile.write(json.dumps(blog.blogBase))
+    listFile.close()
 
-commentNumSum=0
-wordCount=0
-print("====== create postList.json file ======")
-blog.blogBase["postListJson"]=dict(sorted(blog.blogBase["postListJson"].items(),key=lambda x:x[1]["createdAt"],reverse=True))#使列表由时间排序
-for i in blog.blogBase["postListJson"]:
-    del blog.blogBase["postListJson"][i]["description"]
-    del blog.blogBase["postListJson"][i]["postSourceUrl"]
-    del blog.blogBase["postListJson"][i]["htmlDir"]
-    del blog.blogBase["postListJson"][i]["createdAt"]
-    del blog.blogBase["postListJson"][i]["script"]
-    del blog.blogBase["postListJson"][i]["style"]
-    del blog.blogBase["postListJson"][i]["top"]
-    del blog.blogBase["postListJson"][i]["ogImage"]
+    commentNumSum=0
+    wordCount=0
+    print("====== create postList.json file ======")
+    blog.blogBase["postListJson"]=dict(sorted(blog.blogBase["postListJson"].items(),key=lambda x:x[1]["createdAt"],reverse=True))#使列表由时间排序
+    for i in blog.blogBase["postListJson"]:
+        del blog.blogBase["postListJson"][i]["description"]
+        del blog.blogBase["postListJson"][i]["postSourceUrl"]
+        del blog.blogBase["postListJson"][i]["htmlDir"]
+        del blog.blogBase["postListJson"][i]["createdAt"]
+        del blog.blogBase["postListJson"][i]["script"]
+        del blog.blogBase["postListJson"][i]["style"]
+        del blog.blogBase["postListJson"][i]["top"]
+        del blog.blogBase["postListJson"][i]["ogImage"]
 
-    if 'head' in blog.blogBase["postListJson"][i]:
-        del blog.blogBase["postListJson"][i]["head"]
+        if 'head' in blog.blogBase["postListJson"][i]:
+            del blog.blogBase["postListJson"][i]["head"]
 
-    if 'commentNum' in blog.blogBase["postListJson"][i]:
-        commentNumSum=commentNumSum+blog.blogBase["postListJson"][i]["commentNum"]
-        del blog.blogBase["postListJson"][i]["commentNum"]
+        if 'commentNum' in blog.blogBase["postListJson"][i]:
+            commentNumSum=commentNumSum+blog.blogBase["postListJson"][i]["commentNum"]
+            del blog.blogBase["postListJson"][i]["commentNum"]
 
-    if 'wordCount' in blog.blogBase["postListJson"][i]:
-        wordCount=wordCount+blog.blogBase["postListJson"][i]["wordCount"]
-        del blog.blogBase["postListJson"][i]["wordCount"]
+        if 'wordCount' in blog.blogBase["postListJson"][i]:
+            wordCount=wordCount+blog.blogBase["postListJson"][i]["wordCount"]
+            del blog.blogBase["postListJson"][i]["wordCount"]
 
-blog.blogBase["postListJson"]["labelColorDict"]=blog.labelColorDict
+    blog.blogBase["postListJson"]["labelColorDict"]=blog.labelColorDict
 
-docListFile=open(blog.root_dir+"postList.json","w")
-docListFile.write(json.dumps(blog.blogBase["postListJson"]))
-docListFile.close()
+    docListFile=open(blog.root_dir+"postList.json","w")
+    docListFile.write(json.dumps(blog.blogBase["postListJson"]))
+    docListFile.close()
 
-if os.environ.get('GITHUB_EVENT_NAME')!='schedule':
-    print("====== update readme file ======")
-    workspace_path = os.environ.get('GITHUB_WORKSPACE')
-    readme="# %s :link: %s \r\n" % (blog.blogBase["title"],blog.blogBase["homeUrl"])
-    readme=readme+"### :page_facing_up: [%d](%s/tag.html) \r\n" % (len(blog.blogBase["postListJson"])-1,blog.blogBase["homeUrl"])
-    readme=readme+"### :speech_balloon: %d \r\n" % commentNumSum
-    readme=readme+"### :hibiscus: %d \r\n" % wordCount
-    readme=readme+"### :alarm_clock: %s \r\n" % datetime.datetime.now(blog.TZ).strftime('%Y-%m-%d %H:%M:%S')
-    readme=readme+"### Powered by :heart: [Gmeek](https://github.com/Meekdai/Gmeek)\r\n"
-    readmeFile=open(workspace_path+"/README.md","w")
-    readmeFile.write(readme)
-    readmeFile.close()
+    if os.environ.get('GITHUB_EVENT_NAME')!='schedule':
+        print("====== update readme file ======")
+        workspace_path = os.environ.get('GITHUB_WORKSPACE')
+        readme="# %s :link: %s \r\n" % (blog.blogBase["title"],blog.blogBase["homeUrl"])
+        readme=readme+"### :page_facing_up: [%d](%s/tag.html) \r\n" % (len(blog.blogBase["postListJson"])-1,blog.blogBase["homeUrl"])
+        readme=readme+"### :speech_balloon: %d \r\n" % commentNumSum
+        readme=readme+"### :hibiscus: %d \r\n" % wordCount
+        readme=readme+"### :alarm_clock: %s \r\n" % datetime.datetime.now(blog.TZ).strftime('%Y-%m-%d %H:%M:%S')
+        readme=readme+"### Powered by :heart: [Gmeek](https://github.com/Meekdai/Gmeek)\r\n"
+        readmeFile=open(workspace_path+"/README.md","w")
+        readmeFile.write(readme)
+        readmeFile.close()
 ######################################################################################
