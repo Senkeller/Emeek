@@ -75,3 +75,35 @@ def test_pagination_marks_blocks_break_inside_avoid():
 
 def test_pagination_keeps_mobile_bypass():
     assert "720" in PAGINATE_TEXT
+
+
+def test_journal_columns_fill_left_column_first():
+    """期刊分栏必须「左栏填满 → 右栏」，而不是把同段内容均摊到两栏。
+
+    浏览器默认 column-fill: balance 会均衡分配，导致同一段被左右拆开；
+    期刊排版要求 column-fill: auto，按阅读顺序先填满左栏。
+    """
+    compact = STYLE.replace(" ", "").replace("\n", "")
+    assert "column-fill:auto" in compact, "缺少 column-fill: auto，分栏会被均衡拆分"
+
+
+def test_journal_columns_do_not_split_paragraphs():
+    """段落内部不应被分栏线切开：段内禁止断栏。"""
+    compact = STYLE.replace(" ", "")
+    assert "break-inside:avoid" in compact or "break-inside: avoid" in STYLE
+
+
+def test_pagination_measures_blocks_at_single_column_width():
+    """测量宽度必须是单栏宽，而非容器全宽。
+
+    页内正文按双栏排布，每个块实际只占一栏宽。若测量容器用容器全宽，
+    块高度会被低估约一半，分页时所有块被误判为塞得进一页，随后被
+    .jpage 的 overflow:hidden 静默裁掉——读者会丢正文且毫无提示。
+    """
+    compact = PAGINATE_TEXT.replace(" ", "")
+    assert "singleColumnWidth" in compact, "缺少单栏宽度测量变量"
+    # 单栏宽 = (容器宽 - 栏间距) / 2
+    assert "/2" in compact or "/ 2" in PAGINATE_TEXT
+    # 栏间距从计算样式读取，而非硬编码
+    assert "columnGap" in compact
+    assert "getComputedStyle" in compact
