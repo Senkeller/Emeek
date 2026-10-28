@@ -120,43 +120,6 @@ def test_pagination_measures_blocks_at_single_column_width():
     assert "getComputedStyle" in compact
 
 
-def test_all_heading_levels_span_columns():
-    """所有标题层级都必须跨栏，不能被栏线切开。
-
-    h2/h3 已跨栏，但 h4/h5/h6 若遗漏 column-span: all，
-    三级以下标题会挤在单栏里被截断，破坏章节层级。
-    """
-    import re
-    m = re.search(r"\.jpage\.markdown-body h4,\s*\n\.jpage\.markdown-body h5,\s*\n"
-                  r"\.jpage\.markdown-body h6 \{([^}]*)\}", STYLE)
-    assert m, "缺少 h4/h5/h6 组合规则"
-    body = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S).replace(" ", "").replace("\n", "")
-    assert "column-span:all" in body, "h4/h5/h6 必须 column-span: all"
-
-
-def test_only_headings_span_columns():
-    """只有标题跨栏；代码块、列表、引用、表格、图、Alert、Mermaid 留在栏内。
-
-    跨栏元素会强制结束当前栏。技术文章代码密集时若 pre/ul/blockquote 都跨栏，
-    每块都打断栏流，导致左栏只填到一半就换栏。只让标题跨栏可让正文连续填充。
-    """
-    import re
-    # 收集所有声明 column-span: all 的选择器
-    spanning = []
-    for m in re.finditer(r"([^{}]+)\{([^}]*)\}", STYLE, re.S):
-        sel, body = m.group(1), m.group(2)
-        clean = re.sub(r"/\*.*?\*/", "", body, flags=re.S).replace(" ", "").replace("\n", "")
-        if "column-span:all" in clean:
-            spanning.append(sel.strip())
-    joined = " ".join(spanning).lower()
-    # 标题类必须跨栏
-    assert "h1" in joined or "h2" in joined or "h3" in joined, "标题应跨栏"
-    # 这些块必须不跨栏
-    for bad in ["pre", "blockquote", "markdown-alert", "mermaid", "table", "figure"]:
-        hits = [s for s in spanning if bad in s.lower()]
-        assert not hits, f"{bad} 不应跨栏，但出现在: {hits}"
-
-
 def test_page_capacity_multiplies_by_column_count():
     """分页容量必须乘以栏数，否则每页只装半页内容。
 
@@ -192,3 +155,60 @@ def test_wide_block_detection_handles_clipboard_wrapper():
     """
     compact = PAGINATE_TEXT.replace(" ", "").replace("\n", "")
     assert "querySelector('pre,table')" in compact or 'querySelector("pre,table")' in compact
+
+
+def test_code_table_and_text_blocks_use_smaller_unified_type():
+    """代码块、表格、text 块的字号与行距应统一，并略小于正文。
+
+    正文 15px/1.7；这些块作为插图级元素应更紧凑，避免与正文抢视觉重量。
+    """
+    import re
+    pre_rule = re.search(r"\.jpage\.markdown-body pre \{([^}]*)\}", STYLE, re.S)
+    assert pre_rule, "缺少 pre 规则"
+    body = pre_rule.group(1).replace(" ", "")
+    # 字号由统一令牌承载，且令牌值小于正文 15px
+    assert "--journal-code-size" in body, "代码块应使用统一字号令牌"
+    tok = re.search(r"--journal-code-size:\s*(\d+)px", STYLE)
+    assert tok and int(tok.group(1)) < 15, "代码块字号应小于正文"
+    # 行距走统一令牌，且比正文 1.7 更紧凑
+    assert "--journal-code-leading" in body, "代码块应使用统一行距令牌"
+    lead = re.search(r"--journal-code-leading:\s*([\d.]+)", STYLE)
+    assert lead and float(lead.group(1)) < 1.7, "代码块行距应小于正文"
+
+
+def test_table_font_is_smaller_than_body_text():
+    """表格字号应小于正文，避免表格比正文更抢眼。"""
+    import re
+    tbl = re.search(r"\.jpage\.markdown-body table \{([^}]*)\}", STYLE, re.S)
+    assert tbl, "缺少 table 规则"
+    body = tbl.group(1).replace(" ", "")
+    # 表格与代码块共用同一字号令牌
+    assert "--journal-code-size" in body, "表格应使用统一字号令牌"
+    tok = re.search(r"--journal-code-size:\s*(\d+)px", STYLE)
+    assert tok and int(tok.group(1)) < 15, "表格字号应小于正文"
+
+
+def test_vertical_rhythm_is_compact():
+    """分隔线与标题的纵向间距应收紧，避免 markdown 空行造成大片空白。"""
+    import re
+    hr = re.search(r"\.jpage\.markdown-body hr \{([^}]*)\}", STYLE, re.S)
+    assert hr, "缺少 hr 规则"
+    body = hr.group(1).replace(" ", "")
+    m = re.search(r"margin:([\d.]+)em", body)
+    assert m and float(m.group(1)) <= 0.8, "hr 上下间距过大，应 ≤0.8em"
+
+
+def test_headings_stay_in_column_flow():
+    """标题留在栏内，保证「左栏填满→右栏」的连续阅读顺序。
+
+    标题若 column-span: all 会强制结束当前栏，导致每页出现「左栏一段 → 跨栏标题
+    → 右栏」的碎块。标题通常单行，留在栏内不会被栏线切开，只需 break-after: avoid
+    防止标题孤零零落在栏底。
+    """
+    import re
+    for tag in ["h2", "h3"]:
+        m = re.search(r"\.jpage\.markdown-body %s \{([^}]*)\}" % tag, STYLE, re.S)
+        assert m, f"缺少 {tag} 规则"
+        body = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S).replace(" ", "")
+        assert "column-span:all" not in body, f"{tag} 不应跨栏"
+        assert "break-after:avoid" in body, f"{tag} 需 break-after: avoid 防孤立"
