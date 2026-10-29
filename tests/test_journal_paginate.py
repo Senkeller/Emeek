@@ -81,6 +81,44 @@ def test_engine_marks_page_number():
         "每页需生成页码元素"
 
 
+def test_engine_detects_horizontal_overflow():
+    """引擎必须检测横向溢出（内容被挤进多栏容器的虚拟栏）。
+
+    这是曾经的真实 bug：多栏容器装不下内容时，浏览器不安向下溢出，
+    而是向右继续开新的虚拟栏。此时 scrollHeight 恒等于页高，
+    只检查「底边是否超过页底」的旧逻辑永不触发，
+    导致引擎误判「一页装完」，把大部分内容留在被 overflow:hidden
+    裁掉的虚拟栏里——读者只能看到第一栏。
+
+    实测：9339 字符的文章曾只生成 1 页，
+    该页 scrollWidth=3272px、clientWidth=830px。
+    """
+    c = compact(PAGINATE_TEXT)
+    assert "scrollWidth" in PAGINATE_TEXT, "引擎必须检查 scrollWidth"
+    assert "clientWidth" in PAGINATE_TEXT, "引擎必须对比 clientWidth"
+    # 横向检测必须在纵向之前（否则会被底边检测的 return null 短路）
+    h_idx = PAGINATE_TEXT.find("scrollWidth")
+    v_idx = PAGINATE_TEXT.find("limit + 1")
+    assert h_idx > 0 and v_idx > 0, "需同时有横向与纵向检测"
+    assert h_idx < v_idx, "横向溢出检测必须先于纵向检测执行"
+
+
+def test_page_number_does_not_break_container_width():
+    """页码不得撑大容器宽度。
+
+    position:absolute 的元素仍会撑大 scrollWidth。若用 left:0;right:0，
+    宽度等于整页外框，与 padding 相加后超出可视区；
+    若加 column-span: all，会在多栏容器里占整行宽度。
+    必须左右各留 padding 值（28px）对齐内容区。
+    """
+    m = re.search(r"\.jpages \.journal-pgno\s*\{([^}]*)\}", STYLE)
+    assert m, "缺少 .jpages .journal-pgno 规则"
+    body = m.group(1).replace(" ", "").replace("\n", "")
+    assert "column-span:all" not in body, "页码不得 column-span: all"
+    assert "left:0;" not in body, "页码 left 不能为 0（会撑大 scrollWidth）"
+    assert "left:28px" in body, "页码 left 应为 28px，与页面 padding 对齐"
+
+
 def test_css_defines_a4_proportion_page():
     """纸页容器必须按 A4 比例：920px 宽 × 1300px 高（1.414 比例）。
 
