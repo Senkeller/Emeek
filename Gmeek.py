@@ -221,25 +221,10 @@ class GMEEK():
             post_body=re.sub(r'</math-renderer>','',post_body)
             issue["script"]=issue["script"]+'<script>MathJax = {tex: {inlineMath: [["$", "$"]]}};</script><script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>'
         
-        if '<p class="markdown-alert-title">' in post_body:
-            issue["style"]=issue["style"]+'<style>.markdown-alert{padding:0.5rem 1rem;margin-bottom:1rem;border-left:.25em solid var(--borderColor-default,var(--color-border-default));}.markdown-alert .markdown-alert-title {display:flex;font-weight:var(--base-text-weight-medium,500);align-items:center;line-height:1;}.markdown-alert>:first-child {margin-top:0;}.markdown-alert>:last-child {margin-bottom:0;}</style>'
-            alerts = {
-                'note': 'accent',
-                'tip': 'success',
-                'important': 'done',
-                'warning': 'attention',
-                'caution': 'danger'
-            }
-
-            for alert, style in alerts.items():
-                if f'markdown-alert-{alert}' in post_body:
-                    issue["style"] += (
-                        f'<style>.markdown-alert.markdown-alert-{alert} {{'
-                        f'border-left-color:var(--borderColor-{style}-emphasis, var(--color-{style}-emphasis));'
-                        f'background-color:var(--color-{style}-subtle);}}'
-                        f'.markdown-alert.markdown-alert-{alert} .markdown-alert-title {{'
-                        f'color: var(--fgColor-{style},var(--color-{style}-fg));}}</style>'
-                    )
+        # 注：GitHub Markdown API 已直接输出 .markdown-alert 结构，
+        # 其样式统一由 journal-style.css 负责（纸刊配色的左竖线、底色）。
+        # 此处不再注入针对 GitHub 默认皮肤的内联样式——那会造成双重定义、
+        # 优先级混乱，且颜色与纸刊版式冲突。
 
         if '<code class="notranslate">Gmeek-html' in post_body:
             post_body = re.sub(r'<code class="notranslate">Gmeek-html(.*?)</code>', lambda match: html.unescape(match.group(1)), post_body, flags=re.DOTALL)
