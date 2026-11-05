@@ -34,3 +34,29 @@ def test_adapter_keeps_original_content_when_mermaid_unavailable():
 def test_post_loads_markdown_adapter_once():
     """文章页必须加载一次适配器脚本。"""
     assert POST.count("journal-markdown.js") == 1
+
+
+def test_adapter_cleans_github_enrichment_container_and_loader():
+    """GitHub 的 Mermaid 外壳必须整体替换，不能留下永久转圈的 loader。"""
+    assert "js-render-needs-enrichment" in ADAPTER
+    assert "js-render-enrichment-loader" in ADAPTER
+    assert "render-plaintext-hidden" in ADAPTER
+    # 替换的是 section 容器，而不是只替换里面的 pre
+    assert "mermaidContainer" in ADAPTER
+
+
+def test_adapter_exposes_ready_promise_for_paginator():
+    """分页引擎需要等待 Mermaid 异步渲染完成，避免按旧高度切页。"""
+    assert "ready: function" in ADAPTER
+    assert "readyPromise" in ADAPTER
+
+
+def test_post_only_loads_mermaid_when_content_needs_it():
+    """没有 Mermaid 的文章不应下载约 2.7MB 的 mermaid.min.js。"""
+    assert "mermaid@11.12.2" in POST
+    mermaid_count = POST.count("mermaid.min.js")
+    assert mermaid_count == 1
+    # 条件加载：把脚本包在 Jinja if 里
+    idx = POST.find("mermaid.min.js")
+    before = POST[max(0, idx - 200):idx]
+    assert "{% if" in before

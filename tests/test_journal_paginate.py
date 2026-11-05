@@ -75,6 +75,33 @@ def test_engine_skips_pagination_on_narrow_screens():
     assert "720" in PAGINATE_TEXT, "需有 720px 断点判断"
 
 
+def test_engine_repaginates_on_resize():
+    """窗口尺寸变化后必须恢复并重新分页。
+
+    失败模式：在 1300px 宽加载后缩到 472px，页面仍保留 4 张固定
+    1300px 高的纸页，内容被裁掉。引擎需要监听 resize 并：
+    - 变窄时 unpaginate() 恢复自然流
+    - 变宽/宽度变化时重新 paginate()
+    """
+    c = compact(PAGINATE_TEXT)
+    assert "resize" in PAGINATE_TEXT, "需监听 window resize"
+    assert "unpaginate" in PAGINATE_TEXT, "需能把纸页恢复为未分页状态"
+    assert "refresh" in PAGINATE_TEXT, "需有统一的重分页入口"
+
+
+def test_engine_oversized_block_gets_visible_page():
+    """单块超过一整页时必须标记 oversized，而不是 overflow:hidden 裁掉。"""
+    c = compact(PAGINATE_TEXT)
+    assert "journal-oversized" in PAGINATE_TEXT
+    # 新页只放一个块却仍溢出时，也要立刻标记
+    assert c.count("journal-oversized") >= 2
+    rule = re.search(r"\.jpages \.jpage\.journal-oversized\s*\{([^}]*)\}", STYLE)
+    assert rule, "缺少 .journal-oversized 样式"
+    body = rule.group(1).replace(" ", "").replace("\n", "")
+    assert "height:auto" in body
+    assert "overflow:visible" in body
+
+
 def test_engine_marks_page_number():
     """每页需有页码标识（与 PDF 观感一致）。"""
     assert "pgno" in PAGINATE_TEXT or "page-number" in PAGINATE_TEXT, \

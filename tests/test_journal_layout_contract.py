@@ -129,26 +129,22 @@ def test_post_render_forwards_issue_labels_as_post_labels():
     assert "postLabels=postLabels" in GMEek.replace(" ", "")
 
 
-def test_continuous_layout_spans_all_headings_across_columns():
-    """连续滚动双栏：每一级标题都必须跨栏（column-span: all）。
+def test_pdf_layout_keeps_headings_in_column_flow():
+    """PDF 式分页：标题参与栏流（不跨栏），只用 break-after 防孤行。
 
-    连续媒体下 column-fill:auto 会被浏览器强制当作 balance，无法靠它控制
-    填栏顺序。唯一可靠的切分手段是让标题通栏——跨栏元素强制打断栏流，
-    使每个标题之间自然形成一个独立的双栏版面单元（标题通栏 + 该节正文
-    两栏等高）。实测 33 篇真实文章，恢复标题跨栏后「仅右栏」组从 23 降到 0。
+    在固定页高的双栏纸页里，标题若 column-span: all 会强制打断栏流，
+    使每个标题之间各自平衡两栏，造成右栏大量留白。实测 33 篇真实文章：
+    取消标题跨栏后「左栏空、右栏满」降为 0 篇，总页数从 67 降到 33。
     """
-    # 组合选择器 (.jpage.markdown-body h1, .jpage.markdown-body h2) 需分别提取
     for sel, label in [
         (".jpage.markdown-body h1", "h1"),
         (".jpage.markdown-body h2", "h2"),
         (".jpage.markdown-body h3", "h3"),
+        (".jpage.markdown-body h4", "h4"),
     ]:
-        rule = _rule_body_by_selector_member(sel)
-        assert "column-span:all" in rule.replace(" ", ""), f"{label} 必须跨栏（column-span: all）"
-
-    # h4-h6 在同一组合规则里，检查该组合规则体
-    h456 = _rule_body_by_selector_member(".jpage.markdown-body h4")
-    assert "column-span:all" in h456.replace(" ", ""), "h4-h6 必须跨栏（column-span: all）"
+        rule = _rule_body_by_selector_member(sel).replace(" ", "")
+        assert "column-span:all" not in rule, f"{label} 不应跨栏（会打断双栏栏流）"
+        assert "break-after:avoid" in rule, f"{label} 需要 break-after: avoid 防孤行"
 
 
 def test_continuous_layout_has_no_fixed_page_height_or_clipping():

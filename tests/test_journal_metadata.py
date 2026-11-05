@@ -5,7 +5,7 @@
 - merge_journal_meta(article, config, issue) -> dict：文章 > 配置 > Issue 的字段归并
 """
 
-from Gmeek import extract_journal_meta, merge_journal_meta
+from Gmeek import extract_journal_meta, merge_journal_meta, rewrite_github_image_urls
 
 
 def test_extracts_and_removes_strict_gmeek_meta_block():
@@ -79,6 +79,26 @@ def test_issue_author_is_used_when_config_author_is_missing():
         {"author": "issue-login", "labels": []},
     )
     assert merged["author"] == "issue-login"
+
+
+def test_private_github_image_urls_are_rewritten_to_permanent_assets():
+    """GitHub 临时签名图片地址必须改写为永久 user-attachments 地址。
+
+    失败模式：Markdown API 返回 private-user-images...?jwt=...，
+    JWT 5 分钟后过期，构建产物里所有图片 404。
+    """
+    source = (
+        '<img src="https://private-user-images.githubusercontent.com/'
+        '66147551/350821035-efe057ed-39eb-447f-bd38-7870f6f9eff6.png'
+        '?jwt=eyJhbGciOiJIUzI1NiJ9.abc&amp;x=1">'
+        '<img src="https://example.com/keep.png">'
+    )
+    result = rewrite_github_image_urls(source)
+    assert result == (
+        '<img src="https://github.com/user-attachments/assets/'
+        'efe057ed-39eb-447f-bd38-7870f6f9eff6">'
+        '<img src="https://example.com/keep.png">'
+    )
 
 
 def test_add_one_post_json_captures_issue_author(tmp_path):

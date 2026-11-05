@@ -41,6 +41,27 @@ GMEek_META_RE = re.compile(
     r"<!--\s*gmeek-meta\s*(\{.*?\})\s*-->", re.DOTALL
 )
 
+# GitHub Markdown API 返回的图片地址是带 5 分钟 JWT 的临时地址：
+#   https://private-user-images.githubusercontent.com/<uid>/<num>-<uuid>.png?jwt=...
+# 构建产物一旦发布，JWT 过期后所有图片都会 404。
+# user-attachments 的永久地址只认 UUID：
+#   https://github.com/user-attachments/assets/<uuid>
+GITHUB_PRIVATE_IMAGE_RE = re.compile(
+    r"https://private-user-images\.githubusercontent\.com/"
+    r"\d+/\d+-(?P<uuid>[0-9a-fA-F-]{36})\.[A-Za-z0-9]+"
+    r"(?:\?[^\"'\s<>]*)?"
+)
+
+
+def rewrite_github_image_urls(html_text):
+    """把 GitHub 临时签名图片地址改写为永久 user-attachments 地址。"""
+    if not html_text:
+        return html_text
+    return GITHUB_PRIVATE_IMAGE_RE.sub(
+        lambda match: "https://github.com/user-attachments/assets/" + match.group("uuid"),
+        html_text,
+    )
+
 
 def extract_journal_meta(markdown):
     """提取单篇期刊元信息，并从正文中移除元数据块。"""
@@ -194,7 +215,7 @@ class GMEEK():
         try:
             response = requests.post("https://api.github.com/markdown", json=payload, headers=headers)
             response.raise_for_status()  # Raises an exception if status code is not 200
-            return response.text
+            return rewrite_github_image_urls(response.text)
         except requests.RequestException as e:
             raise Exception("markdown2html error: {}".format(e))
 

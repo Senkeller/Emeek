@@ -131,7 +131,9 @@
 {% endblock %}
 
 {% block script %}
+{% if 'lang="mermaid"' in blogBase['postBody'] or 'language-mermaid' in blogBase['postBody'] %}
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.2/dist/mermaid.min.js"></script>
+{% endif %}
 <script src="{{ blogBase['homeUrl'] }}/assets/journal-markdown.js"></script>
 <script>
 document.getElementById("pathHome").setAttribute("d",IconList["home"]);
